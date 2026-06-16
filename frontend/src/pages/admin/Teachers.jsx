@@ -1,388 +1,224 @@
-import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Search, Copy } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Plus, Edit2, Trash2, Copy, Eye, EyeOff } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import Button from '../../components/Button'
-import Input from '../../components/Input'
-import Modal from '../../components/Modal'
-import Card from '../../components/Card'
-import Alert from '../../components/Alert'
-import Pagination from '../../components/Pagination'
+import Modal from '../../components/common/Modal'
+import Button from '../../components/forms/Button'
+import Input from '../../components/forms/Input'
+import Alert from '../../components/common/Alert'
+import Badge from '../../components/common/Badge'
+import LoadingSpinner from '../../components/common/LoadingSpinner'
 
-export default function TeacherManagement() {
-  const { get, post, put, del } = useApi()
+const EMPTY = { first_name: '', last_name: '', email: '' }
+
+export default function Teachers() {
+  const { get, post, put, del, loading } = useApi()
+
   const [teachers, setTeachers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [deleteModal, setDeleteModal] = useState(false)
+  const [credModal, setCredModal] = useState(false)
+  const [form, setForm] = useState(EMPTY)
+  const [editing, setEditing] = useState(null)
+  const [target, setTarget] = useState(null)
+  const [credentials, setCredentials] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [showPwd, setShowPwd] = useState(false)
 
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [showCreatedModal, setShowCreatedModal] = useState(false)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [selectedTeacher, setSelectedTeacher] = useState(null)
-  const [newTeacherCredentials, setNewTeacherCredentials] = useState(null)
-
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-  })
-
-  useEffect(() => {
-    fetchTeachers()
+  const fetchTeachers = useCallback(async () => {
+    try {
+      const res = await get('/teachers')
+      setTeachers(res.teachers || [])
+    } catch { setError('Failed to load teachers.') }
   }, [])
 
-  const fetchTeachers = async () => {
+  useEffect(() => { fetchTeachers() }, [fetchTeachers])
+
+  const openAdd  = () => { setForm(EMPTY); setEditing(null); setModalOpen(true) }
+  const openEdit = (t) => { setForm({ first_name: t.first_name, last_name: t.last_name, email: t.email }); setEditing(t.id); setModalOpen(true) }
+  const openDel  = (t) => { setTarget(t); setDeleteModal(true) }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setError('')
     try {
-      setLoading(true)
-      const response = await get('/teachers')
-      if (response.success) {
-        setTeachers(response.data)
+      if (editing) {
+        await put(`/teachers?id=${editing}`, form)
+        setSuccess('Teacher updated.')
+        setModalOpen(false)
+        fetchTeachers()
       } else {
-        setError(response.message || 'Failed to load teachers')
-      }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData({ ...formData, [name]: value })
-  }
-
-  const handleAddTeacher = async (e) => {
-    e.preventDefault()
-    try {
-      const response = await post('/teachers', formData)
-      if (response.success) {
-        setNewTeacherCredentials(response.data)
-        setShowAddModal(false)
-        setShowCreatedModal(true)
-        setFormData({ first_name: '', last_name: '', email: '' })
+        const res = await post('/teachers', form)
+        setModalOpen(false)
+        setCredentials({ username: res.username, password: res.default_password, name: `${form.first_name} ${form.last_name}` })
+        setCredModal(true)
         fetchTeachers()
       }
-    } catch (err) {
-      setError(err.message)
-    }
+    } catch (err) { setError(err.message) }
+    finally { setSubmitting(false) }
   }
 
-  const handleEditTeacher = async (e) => {
-    e.preventDefault()
+  const handleDelete = async () => {
+    setSubmitting(true)
     try {
-      const response = await put(`/teachers/${selectedTeacher.id}`, formData)
-      if (response.success) {
-        setSuccess('Teacher updated successfully')
-        setShowEditModal(false)
-        fetchTeachers()
-      }
-    } catch (err) {
-      setError(err.message)
-    }
+      await del(`/teachers?id=${target.id}`)
+      setSuccess('Teacher deactivated.')
+      setDeleteModal(false)
+      fetchTeachers()
+    } catch (err) { setError(err.message) }
+    finally { setSubmitting(false) }
   }
 
-  const handleDeleteTeacher = async () => {
-    try {
-      const response = await del(`/teachers/${selectedTeacher.id}`)
-      if (response.success) {
-        setSuccess('Teacher deactivated successfully')
-        setShowDeleteModal(false)
-        fetchTeachers()
-      }
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  const openEditModal = (teacher) => {
-    setSelectedTeacher(teacher)
-    setFormData({
-      first_name: teacher.first_name,
-      last_name: teacher.last_name,
-      email: teacher.email,
-    })
-    setShowEditModal(true)
-  }
-
-  const handleCopyCredentials = () => {
-    const text = `Username: ${newTeacherCredentials.username}\nPassword: ${newTeacherCredentials.password}`
+  const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text)
-    setSuccess('Credentials copied to clipboard')
+    setSuccess('Copied to clipboard!')
   }
 
-  const filteredTeachers = teachers.filter(teacher =>
-    teacher.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teacher.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teacher.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  const itemsPerPage = 10
-  const totalPages = Math.ceil(filteredTeachers.length / itemsPerPage)
-  const paginatedTeachers = filteredTeachers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  )
+  const set = k => e => setForm({ ...form, [k]: e.target.value })
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Teacher Management</h1>
-        <Button
-          variant="primary"
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Add Teacher
-        </Button>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-[#1A1A1A]">Teachers</h1>
+          <p className="text-sm text-gray-500">{teachers.length} teachers registered</p>
+        </div>
+        <Button size="sm" onClick={openAdd}><Plus className="w-4 h-4" /> Add Teacher</Button>
       </div>
 
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} dismissible />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} dismissible />}
+      {error   && <Alert type="error"   message={error}   onClose={() => setError('')} />}
+      {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
 
-      {/* Search */}
-      <Card>
-        <Input
-          placeholder="Search by name or email..."
-          value={searchTerm}
-          onChange={(e) => {
-            setSearchTerm(e.target.value)
-            setCurrentPage(1)
-          }}
-          icon={Search}
-        />
-      </Card>
-
-      {/* Teachers Table */}
-      <Card noPadding>
+      <div className="bg-white rounded-2xl shadow-card overflow-hidden">
         {loading ? (
-          <div className="p-6 text-center text-gray-600">Loading...</div>
-        ) : paginatedTeachers.length > 0 ? (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Name</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Email</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Username</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedTeachers.map((teacher, idx) => (
-                    <tr key={idx} className="table-row border-b">
-                      <td className="px-6 py-4 text-gray-900">
-                        {teacher.first_name} {teacher.last_name}
-                      </td>
-                      <td className="px-6 py-4 text-gray-900">{teacher.email}</td>
-                      <td className="px-6 py-4 text-gray-900">{teacher.username}</td>
-                      <td className="px-6 py-4">
-                        <span className={teacher.is_active ? 'badge-success' : 'badge-error'}>
-                          {teacher.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => openEditModal(teacher)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setSelectedTeacher(teacher)
-                            setShowDeleteModal(true)
-                          }}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {totalPages > 1 && (
-              <div className="p-6 border-t flex justify-center">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
-              </div>
-            )}
-          </>
+          <div className="flex justify-center py-16"><LoadingSpinner /></div>
+        ) : teachers.length === 0 ? (
+          <div className="text-center py-16 text-gray-400">
+            <p className="font-medium">No teachers yet.</p>
+            <p className="text-sm mt-1">Add your first teacher to get started.</p>
+          </div>
         ) : (
-          <div className="p-6 text-center text-gray-600">No teachers found</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-[#F5F5F5] border-b border-[#E5E5E5]">
+                <tr>
+                  {['Name','Email','Username','Status','Actions'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E5E5E5]">
+                {teachers.map(t => (
+                  <tr key={t.id} className="hover:bg-[#F5F5F5] transition-colors">
+                    <td className="px-4 py-3 font-medium">{t.first_name} {t.last_name}</td>
+                    <td className="px-4 py-3 text-gray-600">{t.email}</td>
+                    <td className="px-4 py-3 text-gray-600 font-mono text-xs">{t.username}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={t.status === 'active' ? 'success' : 'gray'}>
+                        {t.status || 'active'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => openEdit(t)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600">
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => openDel(t)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </Card>
+      </div>
 
-      {/* Add Teacher Modal */}
-      <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Add New Teacher">
-        <form onSubmit={handleAddTeacher} className="space-y-4">
-          <Input
-            label="First Name *"
-            name="first_name"
-            value={formData.first_name}
-            onChange={handleChange}
-            required
-          />
-          <Input
-            label="Last Name *"
-            name="last_name"
-            value={formData.last_name}
-            onChange={handleChange}
-            required
-          />
-          <Input
-            label="Email *"
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-          />
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" variant="primary" className="flex-1">
-              Add Teacher
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowAddModal(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Teacher Created Modal */}
+      {/* Add/Edit Modal */}
       <Modal
-        isOpen={showCreatedModal}
-        onClose={() => setShowCreatedModal(false)}
-        title="Teacher Account Created"
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editing ? 'Edit Teacher' : 'Add Teacher'}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
+            <Button form="teacher-form" type="submit" loading={submitting}>
+              {editing ? 'Update' : 'Add'} Teacher
+            </Button>
+          </div>
+        }
       >
-        <div className="space-y-4">
-          <div className="bg-green-50 border-l-4 border-green-500 p-4">
-            <p className="text-green-700">Teacher account has been successfully created!</p>
+        <form id="teacher-form" onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="First Name" required value={form.first_name} onChange={set('first_name')} />
+            <Input label="Last Name"  required value={form.last_name}  onChange={set('last_name')} />
           </div>
-
-          <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
-            <div>
-              <p className="text-sm text-gray-600">Username</p>
-              <div className="flex items-center gap-2 mt-1">
-                <code className="flex-1 px-3 py-2 bg-white border rounded font-mono text-sm">
-                  {newTeacherCredentials?.username}
-                </code>
-                <button
-                  onClick={handleCopyCredentials}
-                  className="text-blue-600 hover:text-blue-900"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm text-gray-600">Default Password</p>
-              <div className="flex items-center gap-2 mt-1">
-                <code className="flex-1 px-3 py-2 bg-white border rounded font-mono text-sm">
-                  {newTeacherCredentials?.password}
-                </code>
-                <button
-                  onClick={handleCopyCredentials}
-                  className="text-blue-600 hover:text-blue-900"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-sm text-gray-600 text-center">
-            Share these credentials with the teacher. They should change their password on first login.
-          </p>
-
-          <Button
-            onClick={() => setShowCreatedModal(false)}
-            variant="primary"
-            className="w-full"
-          >
-            Done
-          </Button>
-        </div>
-      </Modal>
-
-      {/* Edit Teacher Modal */}
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Teacher">
-        <form onSubmit={handleEditTeacher} className="space-y-4">
-          <Input
-            label="First Name"
-            name="first_name"
-            value={formData.first_name}
-            onChange={handleChange}
-          />
-          <Input
-            label="Last Name"
-            name="last_name"
-            value={formData.last_name}
-            onChange={handleChange}
-          />
-          <Input
-            label="Email"
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-          />
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" variant="primary" className="flex-1">
-              Update Teacher
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowEditModal(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-          </div>
+          <Input label="Email Address" type="email" required value={form.email} onChange={set('email')} />
+          {!editing && (
+            <Alert type="info" message="A username and default password will be auto-generated and shown to you after creation." />
+          )}
         </form>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <Modal isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Deactivate Teacher" size="sm">
-        <div className="space-y-4">
-          <p className="text-gray-600">
-            Are you sure you want to deactivate {selectedTeacher?.first_name} {selectedTeacher?.last_name}?
-          </p>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="danger"
-              onClick={handleDeleteTeacher}
-              className="flex-1"
-            >
-              Deactivate
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowDeleteModal(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
+      {/* Delete Modal */}
+      <Modal
+        isOpen={deleteModal}
+        onClose={() => setDeleteModal(false)}
+        title="Deactivate Teacher"
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setDeleteModal(false)}>Cancel</Button>
+            <Button variant="danger" loading={submitting} onClick={handleDelete}>Deactivate</Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          Deactivate <strong>{target?.first_name} {target?.last_name}</strong>? They won't be able to log in.
+        </p>
+      </Modal>
+
+      {/* Credentials Modal */}
+      <Modal
+        isOpen={credModal}
+        onClose={() => setCredModal(false)}
+        title="Teacher Credentials"
+        size="sm"
+        footer={
+          <Button fullWidth onClick={() => setCredModal(false)}>Done</Button>
+        }
+      >
+        <Alert type="success" message={`${credentials?.name} has been added successfully.`} className="mb-5" />
+        <p className="text-sm text-gray-600 mb-4">
+          Share these login credentials with the teacher. The password can be changed after first login.
+        </p>
+        <div className="space-y-3">
+          <div className="bg-[#F5F5F5] rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500">Username</p>
+              <p className="font-mono font-bold">{credentials?.username}</p>
+            </div>
+            <button onClick={() => copyToClipboard(credentials?.username)} className="p-1.5 rounded-lg hover:bg-[#E5E5E5]">
+              <Copy className="w-4 h-4 text-gray-500" />
+            </button>
+          </div>
+          <div className="bg-[#F5F5F5] rounded-xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500">Default Password</p>
+              <p className="font-mono font-bold">{showPwd ? credentials?.password : '••••••••'}</p>
+            </div>
+            <div className="flex gap-1">
+              <button onClick={() => setShowPwd(!showPwd)} className="p-1.5 rounded-lg hover:bg-[#E5E5E5]">
+                {showPwd ? <EyeOff className="w-4 h-4 text-gray-500" /> : <Eye className="w-4 h-4 text-gray-500" />}
+              </button>
+              <button onClick={() => copyToClipboard(credentials?.password)} className="p-1.5 rounded-lg hover:bg-[#E5E5E5]">
+                <Copy className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
           </div>
         </div>
       </Modal>

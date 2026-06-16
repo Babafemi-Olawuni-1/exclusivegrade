@@ -1,74 +1,74 @@
+import { useState, useEffect } from 'react'
+import { BarChart2, BookOpen, FileText, Users } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import { useAuthContext } from '../../context/AuthContext'
-import Card from '../../components/Card'
+import { useAuth } from '../../context/AuthContext'
+import { Link } from 'react-router-dom'
+import LoadingSpinner from '../../components/common/LoadingSpinner'
+import Alert from '../../components/common/Alert'
 
 export default function TeacherDashboard() {
-  const { user } = useAuthContext()
+  const { get, loading } = useApi()
+  const { user } = useAuth()
+  const [stats, setStats] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    get('/teacher/dashboard')
+      .then(r => setStats(r))
+      .catch(() => setError('Failed to load dashboard.'))
+  }, [])
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Welcome, {user?.first_name}!</h1>
-        <p className="text-gray-600 mt-2">Upload and manage student results</p>
+      {/* Welcome */}
+      <div className="bg-gradient-to-r from-[#1A1A1A] to-[#333333] rounded-2xl p-6 text-white">
+        <h1 className="text-xl font-bold mb-1">
+          Hello, {user?.first_name || 'Teacher'} 👋
+        </h1>
+        <p className="text-gray-300 text-sm">Here's your teaching overview</p>
       </div>
 
-      {/* Quick Info */}
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card>
-          <p className="text-gray-600 text-sm mb-2">Results Uploaded</p>
-          <p className="text-3xl font-bold text-gray-900">12</p>
-        </Card>
-        <Card>
-          <p className="text-gray-600 text-sm mb-2">Pending Review</p>
-          <p className="text-3xl font-bold text-orange-600">3</p>
-        </Card>
-        <Card>
-          <p className="text-gray-600 text-sm mb-2">Approved Results</p>
-          <p className="text-3xl font-bold text-green-600">9</p>
-        </Card>
-      </div>
+      {error && <Alert type="error" message={error} />}
 
-      {/* Next Steps */}
-      <Card>
-        <h2 className="text-xl font-bold mb-4 text-gray-900">Next Steps</h2>
-        <div className="space-y-3">
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold flex-shrink-0">
-              1
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">Prepare your results file</p>
-              <p className="text-sm text-gray-600">Use CSV or Excel format with student names and scores</p>
-            </div>
+      {loading ? (
+        <div className="flex justify-center py-10"><LoadingSpinner /></div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { title:'Assigned Classes', value: stats?.assigned_classes || '—', icon: Users, color:'orange' },
+              { title:'Subjects',         value: stats?.subjects || '—',         icon: BookOpen, color:'blue' },
+              { title:'Results Uploaded', value: stats?.results_uploaded || '—', icon: FileText, color:'green' },
+              { title:'Lesson Notes',     value: stats?.lesson_notes || '—',     icon: BarChart2, color:'purple' },
+            ].map(({ title, value, icon: Icon, color }) => (
+              <div key={title} className="bg-white rounded-2xl shadow-card p-5">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{title}</p>
+                <p className="text-2xl font-bold text-[#1A1A1A] mt-1">{value}</p>
+              </div>
+            ))}
           </div>
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold flex-shrink-0">
-              2
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">Upload results</p>
-              <p className="text-sm text-gray-600">Go to "Upload Results" and submit your file</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4">
-            <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold flex-shrink-0">
-              3
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">Wait for approval</p>
-              <p className="text-sm text-gray-600">School admin will review and approve your results</p>
-            </div>
-          </div>
-        </div>
-      </Card>
 
-      {/* Help Section */}
-      <Card className="bg-blue-50 border-l-4 border-blue-500">
-        <h3 className="font-bold text-blue-900 mb-2">Need Help?</h3>
-        <p className="text-blue-700 text-sm">
-          Contact your school administrator for support with uploading results or managing your profile.
-        </p>
-      </Card>
+          {/* Quick Links */}
+          <div>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Quick Actions</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label:'Upload Results',  href:'/teacher/results-upload', icon: BarChart2 },
+                { label:'Lesson Notes',    href:'/teacher/lesson-notes',   icon: BookOpen },
+                { label:'My Profile',      href:'/teacher/profile',        icon: Users },
+              ].map(({ label, href, icon: Icon }) => (
+                <Link key={label} to={href}
+                  className="bg-white rounded-xl p-4 shadow-card hover:shadow-card-lg transition-shadow flex flex-col items-center gap-2 text-center">
+                  <div className="w-10 h-10 rounded-xl bg-[#FF6B00]/10 flex items-center justify-center">
+                    <Icon className="w-5 h-5 text-[#FF6B00]" />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-700">{label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

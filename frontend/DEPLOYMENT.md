@@ -1,148 +1,67 @@
-/**
- * ExclusiveGrades Frontend - Deployment Guide
- * 
- * This guide covers deployment to various platforms
- */
+# ExclusiveGrades Frontend — Deployment Guide
 
-## Deployment Options
-
-### 1. Apache/XAMPP (Local Development)
-- Already configured in your local environment
-- Access via: http://localhost/exclusivegrade/frontend
-- For production, build the app first: `npm run build`
-
-### 2. Netlify
+## Development
 
 ```bash
-# Install Netlify CLI
-npm install -g netlify-cli
-
-# Build the project
-npm run build
-
-# Deploy
-netlify deploy --prod --dir=dist
+npm install
+npm run dev        # starts at http://localhost:3000
 ```
 
-Create `netlify.toml`:
-```toml
-[build]
-  command = "npm run build"
-  publish = "dist"
+## Production Build (cPanel)
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+### Step 1 — Configure environment
+Edit `.env` file:
 ```
-
-### 3. Vercel
-
-```bash
-# Install Vercel CLI
-npm install -g vercel
-
-# Deploy
-vercel
-```
-
-### 4. GitHub Pages
-
-```bash
-# Update vite.config.js:
-# base: '/exclusivegrade/'
-
-npm run build
-# Push dist folder to gh-pages branch
-```
-
-### 5. Docker
-
-Create `Dockerfile`:
-```dockerfile
-FROM node:18-alpine as build
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-Build and run:
-```bash
-docker build -t exclusivegrade-frontend .
-docker run -p 80:80 exclusivegrade-frontend
-```
-
-### 6. AWS S3 + CloudFront
-
-```bash
-# Build
-npm run build
-
-# Configure AWS CLI
-aws configure
-
-# Upload to S3
-aws s3 sync dist/ s3://your-bucket-name/
-
-# Invalidate CloudFront cache
-aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
-```
-
-## Environment Setup
-
-### Production Environment Variables
-
-Create `.env.production`:
-```
-VITE_API_BASE_URL=https://api.exclusivegrade.com/api
+VITE_API_URL=https://your-domain.com/backend/api
 VITE_APP_NAME=ExclusiveGrades
+VITE_APP_ENV=production
 ```
 
-### Build Optimization
-
+### Step 2 — Build
 ```bash
 npm run build
-# Output will be in dist/ folder
+```
+Output goes to `dist/` folder.
+
+### Step 3 — Upload to cPanel
+Upload the **contents of `dist/`** to your `public_html` (or the subdirectory you want):
+```
+public_html/
+  index.html
+  logo.png
+  assets/
+    vendor-xxx.js
+    index-xxx.js
+    ...
 ```
 
-## Performance Checklist
+### Step 4 — Configure .htaccess for React Router
+Create `public_html/.htaccess`:
+```apache
+Options -MultiViews
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.html [QL]
+```
 
-- ✓ CSS is minified
-- ✓ JavaScript is minified and tree-shaken
-- ✓ Code is split into chunks
-- ✓ Images are optimized
-- ✓ Fonts are loaded efficiently
-- ✓ GZIP compression enabled
-- ✓ Caching headers configured
-- ✓ CDN configured for static assets
+### Backend API
+Your backend PHP files stay in `backend/api/`.
+Update `VITE_API_URL` to point to the correct public URL.
 
-## Security Checklist
+## Route Overview
+| Route | Description |
+|---|---|
+| `/` | Landing page |
+| `/login` | Admin/Teacher login |
+| `/register` | School registration |
+| `/school/:slug` | Public school page + result checker |
+| `/admin/*` | School Admin dashboard |
+| `/teacher/*` | Teacher dashboard |
+| `/super/*` | Super Admin dashboard |
 
-- ✓ HTTPS enabled
-- ✓ CORS configured correctly
-- ✓ CSP headers set
-- ✓ XSS protection enabled
-- ✓ CSRF tokens implemented
-- ✓ Authentication tokens secure
-- ✓ API rate limiting enabled
-- ✓ Input validation on frontend
-
-## Monitoring
-
-### Application Performance Monitoring
-- Google Analytics
-- Sentry for error tracking
-- Web Vitals monitoring
-
-### Infrastructure Monitoring
-- Server uptime monitoring
-- API health checks
-- Database performance
-- Disk space alerts
+## Local Storage Keys
+| Key | Value |
+|---|---|
+| `gg_token` | JWT bearer token |
+| `gg_user` | Authenticated user object |
+| `gg_school` | School data |

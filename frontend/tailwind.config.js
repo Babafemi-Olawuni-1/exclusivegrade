@@ -2,26 +2,31 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,jsx}",
+    "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
     extend: {
       colors: {
-        orange: {
-          50: '#fff7ed',
-          100: '#fed7aa',
-          200: '#fed7aa',
-          300: '#fdba74',
-          400: '#fb923c',
-          500: '#ff8c42',
-          600: '#f97316',
-          700: '#ea580c',
-          800: '#c2410c',
-          900: '#7c2d12',
+        brand: {
+          orange:    '#FF6B00',
+          black:     '#1A1A1A',
+          darkgray:  '#333333',
+          lightgray: '#F5F5F5',
+          bordergray:'#E5E5E5',
+          success:   '#10B981',
+          error:     '#EF4444',
+          warning:   '#F59E0B',
+          info:      '#3B82F6',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Sora', 'sans-serif'],
+        sora: ['Sora', 'sans-serif'],
+      },
+      boxShadow: {
+        card:    '0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)',
+        'card-lg':'0 10px 25px rgba(0,0,0,0.1), 0 0 1px rgba(0,0,0,0.05)',
+        logo:    '0 2px 12px rgba(0,0,0,0.15)',
       },
     },
   },

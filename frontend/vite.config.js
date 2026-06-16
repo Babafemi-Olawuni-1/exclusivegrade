@@ -7,6 +7,7 @@ export default defineConfig({
     port: 3000,
     open: true,
     proxy: {
+      // All /api/* requests get proxied to XAMPP — solves CORS in dev
       '/api': {
         target: 'http://localhost/exclusivegrade/backend/api',
         changeOrigin: true,
@@ -20,8 +21,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui': ['lucide-react', 'recharts'],
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui:     ['lucide-react', 'recharts'],
+          axios:  ['axios'],
         },
       },
     },

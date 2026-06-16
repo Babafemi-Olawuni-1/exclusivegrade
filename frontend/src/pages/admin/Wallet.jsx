@@ -1,279 +1,143 @@
 import { useState, useEffect } from 'react'
-import { CreditCard, Plus, TrendingUp } from 'lucide-react'
+import { Wallet as WalletIcon, Plus, Upload, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import { formatCurrency, formatDateTime } from '../../utils/helpers'
-import Button from '../../components/Button'
-import Card from '../../components/Card'
-import Alert from '../../components/Alert'
-import Modal from '../../components/Modal'
+import Modal from '../../components/common/Modal'
+import Button from '../../components/forms/Button'
+import Input from '../../components/forms/Input'
+import Alert from '../../components/common/Alert'
+import Badge from '../../components/common/Badge'
+import LoadingSpinner from '../../components/common/LoadingSpinner'
+import { formatCurrency, formatDate } from '../../utils/helpers'
 
-export default function WalletManagement() {
-  const { get, post } = useApi()
-  const [wallet, setWallet] = useState(null)
-  const [transactions, setTransactions] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(null)
-
-  const [showFundModal, setShowFundModal] = useState(false)
-  const [fundAmount, setFundAmount] = useState('')
-  const [fundingLoading, setFundingLoading] = useState(false)
+export default function Wallet() {
+  const { get, post, loading } = useApi()
+  const [walletData, setWalletData] = useState(null)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [fundModal, setFundModal] = useState(false)
+  const [manualModal, setManualModal] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [fundForm, setFundForm] = useState({ amount: '' })
+  const [manualForm, setManualForm] = useState({ amount: '', screenshot_url: '' })
 
   useEffect(() => {
-    fetchWallet()
-    fetchTransactions()
+    get('/wallet').then(r => setWalletData(r)).catch(() => setError('Failed to load wallet.'))
   }, [])
 
-  const fetchWallet = async () => {
+  const handleFund = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
     try {
-      const response = await get('/wallet')
-      if (response.success) {
-        setWallet(response.data)
-      } else {
-        setError(response.message || 'Failed to load wallet')
+      const res = await post('/wallet?action=fund', fundForm)
+      if (res.payment_url) {
+        window.open(res.payment_url, '_blank')
       }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+      setSuccess('Redirecting to payment...')
+      setFundModal(false)
+    } catch (err) { setError(err.message) }
+    finally { setSubmitting(false) }
   }
 
-  const fetchTransactions = async () => {
+  const handleManual = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
     try {
-      const response = await get('/wallet/transactions')
-      if (response.success) {
-        setTransactions(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to fetch transactions', err)
-    }
+      await post('/wallet?action=manual-request', manualForm)
+      setSuccess('Manual payment request submitted. Admin will review and approve.')
+      setManualModal(false)
+    } catch (err) { setError(err.message) }
+    finally { setSubmitting(false) }
   }
 
-  const handleFund = async () => {
-    if (!fundAmount || parseFloat(fundAmount) <= 0) {
-      setError('Please enter a valid amount')
-      return
-    }
-
-    setFundingLoading(true)
-    try {
-      const response = await post('/wallet/fund', {
-        amount: parseFloat(fundAmount),
-      })
-
-      if (response.success) {
-        // Redirect to Paystack payment
-        if (response.data.payment_url) {
-          window.location.href = response.data.payment_url
-        }
-        setSuccess('Funding initiated')
-        setShowFundModal(false)
-        setFundAmount('')
-        fetchWallet()
-        fetchTransactions()
-      }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setFundingLoading(false)
-    }
-  }
-
-  if (loading) {
-    return <div className="text-center py-12 text-gray-600">Loading wallet...</div>
-  }
+  const typeIcon = (type) => type === 'credit'
+    ? <ArrowDownLeft className="w-4 h-4 text-green-600" />
+    : <ArrowUpRight className="w-4 h-4 text-red-500" />
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Wallet Management</h1>
-        <p className="text-gray-600 mt-2">Manage your wallet balance and PIN credits</p>
-      </div>
+    <div className="space-y-5">
+      <h1 className="text-xl font-bold text-[#1A1A1A]">Wallet</h1>
 
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} dismissible />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} dismissible />}
+      {error   && <Alert type="error"   message={error}   onClose={() => setError('')} />}
+      {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
 
-      {/* Balance Cards */}
-      <div className="grid md:grid-cols-3 gap-6">
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm mb-2">Current Balance</p>
-              <p className="text-3xl font-bold text-gray-900">{formatCurrency(wallet?.balance || 0)}</p>
+      {loading ? (
+        <div className="flex justify-center py-16"><LoadingSpinner /></div>
+      ) : (
+        <>
+          {/* Balance card */}
+          <div className="bg-gradient-to-r from-[#1A1A1A] to-[#333333] rounded-2xl p-6 text-white">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">Available Balance</p>
+                <p className="text-4xl font-bold">{formatCurrency(walletData?.balance || 0)}</p>
+              </div>
+              <div className="w-14 h-14 rounded-2xl bg-[#FF6B00]/20 flex items-center justify-center">
+                <WalletIcon className="w-7 h-7 text-[#FF6B00]" />
+              </div>
             </div>
-            <div className="bg-orange-100 text-orange-600 p-3 rounded-lg">
-              <CreditCard className="h-6 w-6" />
-            </div>
-          </div>
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm mb-2">PIN Rate</p>
-              <p className="text-3xl font-bold text-gray-900">{formatCurrency(wallet?.pin_rate || 0)}</p>
-              <p className="text-xs text-gray-500 mt-2">per PIN</p>
-            </div>
-            <div className="bg-blue-100 text-blue-600 p-3 rounded-lg">
-              <TrendingUp className="h-6 w-6" />
+            <div className="flex gap-3 mt-6">
+              <Button size="sm" onClick={() => setFundModal(true)}>
+                <Plus className="w-4 h-4" /> Fund Wallet
+              </Button>
+              <Button variant="ghost" size="sm" className="text-white border border-white/30 hover:bg-white/10" onClick={() => setManualModal(true)}>
+                <Upload className="w-4 h-4" /> Manual Payment
+              </Button>
             </div>
           </div>
-        </Card>
 
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm mb-2">PINs Available</p>
-              <p className="text-3xl font-bold text-gray-900">
-                {Math.floor((wallet?.balance || 0) / (wallet?.pin_rate || 1))}
-              </p>
-              <p className="text-xs text-gray-500 mt-2">with current balance</p>
+          {/* Transactions */}
+          <div className="bg-white rounded-2xl shadow-card overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#E5E5E5]">
+              <h2 className="font-semibold">Transaction History</h2>
             </div>
-            <div className="bg-green-100 text-green-600 p-3 rounded-lg">
-              <Plus className="h-6 w-6" />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Fund Wallet Section */}
-      <Card>
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-bold text-lg text-gray-900">Add Funds</h3>
-            <p className="text-sm text-gray-600 mt-1">Top up your wallet to generate PINs</p>
-          </div>
-          <Button
-            variant="primary"
-            onClick={() => setShowFundModal(true)}
-            className="flex items-center gap-2"
-          >
-            <CreditCard className="h-4 w-4" />
-            Fund Wallet
-          </Button>
-        </div>
-      </Card>
-
-      {/* Pricing Info */}
-      <Card className="bg-blue-50">
-        <h3 className="font-bold text-gray-900 mb-4">PIN Pricing with Bulk Discounts</h3>
-        <div className="grid md:grid-cols-4 gap-4">
-          <div>
-            <p className="text-sm font-medium text-gray-700">Plan: Starter</p>
-            <p className="text-lg font-bold text-gray-900">₦100/PIN</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-700">Plan: Pro</p>
-            <p className="text-lg font-bold text-orange-600">₦80/PIN</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-700">100+ PINs</p>
-            <p className="text-lg font-bold text-green-600">5% off</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-700">500+ PINs</p>
-            <p className="text-lg font-bold text-green-600">10% off</p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Transaction History */}
-      <Card>
-        <h2 className="text-xl font-bold mb-6 text-gray-900">Transaction History</h2>
-        {transactions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Date</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Description</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Type</th>
-                  <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Amount</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((trans, idx) => (
-                  <tr key={idx} className="table-row border-b">
-                    <td className="px-6 py-4 text-gray-900">{formatDateTime(trans.created_at)}</td>
-                    <td className="px-6 py-4 text-gray-900">{trans.description}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        trans.type === 'credit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {trans.type === 'credit' ? '+' : '-'} {trans.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right font-semibold text-gray-900">
-                      {formatCurrency(trans.amount)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        trans.status === 'success'
-                          ? 'bg-green-100 text-green-800'
-                          : trans.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {trans.status}
-                      </span>
-                    </td>
-                  </tr>
+            {!walletData?.transactions?.length ? (
+              <p className="text-center py-12 text-gray-400 text-sm">No transactions yet.</p>
+            ) : (
+              <div className="divide-y divide-[#E5E5E5]">
+                {walletData.transactions.map(tx => (
+                  <div key={tx.id} className="px-5 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tx.type === 'credit' ? 'bg-green-100' : 'bg-red-100'}`}>
+                        {typeIcon(tx.type)}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{tx.description || tx.type}</p>
+                        <p className="text-xs text-gray-500">{formatDate(tx.created_at)}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-bold text-sm ${tx.type === 'credit' ? 'text-green-600' : 'text-red-500'}`}>
+                        {tx.type === 'credit' ? '+' : '-'}{formatCurrency(tx.amount)}
+                      </p>
+                      <Badge variant={tx.status === 'success' ? 'success' : 'warning'} className="text-xs">{tx.status}</Badge>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="text-center py-8 text-gray-600">No transactions yet</div>
-        )}
-      </Card>
+        </>
+      )}
 
       {/* Fund Modal */}
-      <Modal isOpen={showFundModal} onClose={() => setShowFundModal(false)} title="Fund Wallet">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Amount (₦)</label>
-            <input
-              type="number"
-              value={fundAmount}
-              onChange={(e) => setFundAmount(e.target.value)}
-              placeholder="Enter amount"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-              min="1000"
-              step="100"
-            />
-            <p className="text-xs text-gray-500 mt-2">Minimum amount: ₦1,000</p>
-          </div>
+      <Modal isOpen={fundModal} onClose={() => setFundModal(false)} title="Fund Wallet" size="sm"
+        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setFundModal(false)}>Cancel</Button><Button form="fund-form" type="submit" loading={submitting}>Proceed to Payment</Button></div>}
+      >
+        <form id="fund-form" onSubmit={handleFund} className="space-y-4">
+          <Input label="Amount (₦)" type="number" min="100" required value={fundForm.amount} onChange={e => setFundForm({amount: e.target.value})} placeholder="e.g. 5000" />
+          <Alert type="info" message="You will be redirected to Paystack to complete payment." />
+        </form>
+      </Modal>
 
-          {fundAmount && (
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600">With {formatCurrency(fundAmount)} you can generate:</p>
-              <p className="text-2xl font-bold text-orange-600 mt-2">
-                {Math.floor(parseFloat(fundAmount) / (wallet?.pin_rate || 100))} PINs
-              </p>
-            </div>
-          )}
-
-          <div className="flex gap-2 pt-4">
-            <Button
-              variant="primary"
-              onClick={handleFund}
-              loading={fundingLoading}
-              disabled={fundingLoading}
-              className="flex-1"
-            >
-              Proceed to Payment
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setShowFundModal(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
+      {/* Manual Payment Modal */}
+      <Modal isOpen={manualModal} onClose={() => setManualModal(false)} title="Request Manual Payment" size="sm"
+        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setManualModal(false)}>Cancel</Button><Button form="manual-form" type="submit" loading={submitting}>Submit Request</Button></div>}
+      >
+        <form id="manual-form" onSubmit={handleManual} className="space-y-4">
+          <Input label="Amount (₦)" type="number" min="100" required value={manualForm.amount} onChange={e => setManualForm({...manualForm, amount: e.target.value})} />
+          <Input label="Payment Screenshot URL" type="url" value={manualForm.screenshot_url} onChange={e => setManualForm({...manualForm, screenshot_url: e.target.value})} placeholder="https://..." />
+          <Alert type="info" message="Upload proof of payment. The super admin will review and approve your request." />
+        </form>
       </Modal>
     </div>
   )

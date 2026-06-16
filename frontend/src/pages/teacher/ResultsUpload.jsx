@@ -1,252 +1,204 @@
-import { useState } from 'react'
-import { Upload, Download, AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Save, Send } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import Button from '../../components/Button'
-import Card from '../../components/Card'
-import Alert from '../../components/Alert'
-import Modal from '../../components/Modal'
+import Button from '../../components/forms/Button'
+import Select from '../../components/forms/Select'
+import Alert from '../../components/common/Alert'
+import LoadingSpinner from '../../components/common/LoadingSpinner'
 
 export default function ResultsUpload() {
-  const { post, get } = useApi()
-  const [file, setFile] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(null)
-  const [uploadType, setUploadType] = useState('csv')
-  const [showTemplateModal, setShowTemplateModal] = useState(false)
-  const [gridData, setGridData] = useState([])
-  const [showGridModal, setShowGridModal] = useState(false)
+  const { get, post, loading } = useApi()
+  const [classes, setClasses] = useState([])
+  const [subjects, setSubjects] = useState([])
+  const [sessions, setSessions] = useState([])
+  const [terms, setTerms] = useState([])
+  const [students, setStudents] = useState([])
+  const [template, setTemplate] = useState(null)
+  const [filters, setFilters] = useState({ class_id:'', subject_id:'', term_id:'' })
+  const [scores, setScores] = useState({})   // { studentId: { componentName: score } }
+  const [comments, setComments] = useState({}) // { studentId: comment }
+  const [teacherComment, setTeacherComment] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitAction, setSubmitAction] = useState('save')
 
-  const downloadTemplate = () => {
-    const template = `Student Name,Admission No,Mathematics,English,Physics,Chemistry,Biology,Average Score,Grade
-John Doe,ADM-001,85,92,88,90,87,88.4,A
-Jane Smith,ADM-002,75,80,78,82,79,78.8,B`
+  useEffect(() => {
+    Promise.all([get('/classes'), get('/subjects'), get('/sessions')]).then(([c, s, sess]) => {
+      setClasses(c.classes || [])
+      setSubjects(s.subjects || [])
+      setSessions(sess.sessions || [])
+      setTerms(sess.sessions?.flatMap(s => s.terms?.map(t => ({ ...t, session_name: s.name })) || []) || [])
+    }).catch(() => {})
+  }, [])
 
-    const blob = new Blob([template], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'results-template.csv'
-    a.click()
+  // Load students and template when class + subject chosen
+  useEffect(() => {
+    if (!filters.class_id) return
+    Promise.all([
+      get('/students', { class_id: filters.class_id, per_page: 200 }),
+      get('/result-templates'),
+    ]).then(([s, tr]) => {
+      setStudents(s.students || [])
+      // Find template assigned to this class
+      const tpl = tr.templates?.find(t => t.class_id == filters.class_id) || tr.templates?.[0] || null
+      setTemplate(tpl)
+      // Initialize scores grid
+      const initScores = {}
+      s.students?.forEach(st => {
+        initScores[st.id] = {}
+        tpl?.components?.forEach(c => { initScores[st.id][c.name] = '' })
+      })
+      setScores(initScores)
+      setComments({})
+    }).catch(() => {})
+  }, [filters.class_id])
+
+  const setScore = (studentId, componentName, val) => {
+    setScores(prev => ({
+      ...prev,
+      [studentId]: { ...(prev[studentId] || {}), [componentName]: val }
+    }))
   }
 
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0])
-    setError(null)
-  }
-
-  const handleUpload = async (e) => {
-    e.preventDefault()
-
-    if (!file) {
-      setError('Please select a file')
+  const handleSave = async (action = 'save') => {
+    if (!filters.class_id || !filters.subject_id || !filters.term_id) {
+      setError('Please select class, subject, and term.')
       return
     }
-
-    setLoading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('type', uploadType)
-
+    setSubmitting(true)
+    setError('')
     try {
-      // In a real app, this would upload to the server
-      setSuccess('Results uploaded successfully and submitted for review')
-      setFile(null)
-      document.getElementById('fileInput').value = ''
-    } catch (err) {
-      setError(err.message || 'Failed to upload results')
-    } finally {
-      setLoading(false)
-    }
+      const results = students.map(s => ({
+        student_id: s.id,
+        subject_id: filters.subject_id,
+        components: template?.components?.map(c => ({ name: c.name, score: Number(scores[s.id]?.[c.name] || 0) })) || [],
+        comment: comments[s.id] || '',
+      }))
+
+      if (action === 'submit') {
+        await post('/results?action=submit', { term_id: filters.term_id, teacher_comment: teacherComment, results })
+        setSuccess('Results submitted for admin review!')
+      } else {
+        await post('/results', { term_id: filters.term_id, teacher_comment: teacherComment, results })
+        setSuccess('Results saved as draft.')
+      }
+    } catch (err) { setError(err.message) }
+    finally { setSubmitting(false) }
   }
 
+  const filteredSubjects = filters.class_id
+    ? subjects.filter(s => s.class_id == filters.class_id)
+    : subjects
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Upload Results</h1>
-        <p className="text-gray-600 mt-2">Submit student results for admin review</p>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-[#1A1A1A]">Upload Results</h1>
+          <p className="text-sm text-gray-500">Enter student scores for review</p>
+        </div>
+        {students.length > 0 && (
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" loading={submitting && submitAction === 'save'} onClick={() => { setSubmitAction('save'); handleSave('save') }}>
+              <Save className="w-4 h-4" /> Save Draft
+            </Button>
+            <Button size="sm" loading={submitting && submitAction === 'submit'} onClick={() => { setSubmitAction('submit'); handleSave('submit') }}>
+              <Send className="w-4 h-4" /> Submit for Review
+            </Button>
+          </div>
+        )}
       </div>
 
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} dismissible />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} dismissible />}
+      {error   && <Alert type="error"   message={error}   onClose={() => setError('')} />}
+      {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
 
-      {/* Upload Type Selection */}
-      <Card>
-        <h2 className="text-lg font-bold mb-4 text-gray-900">Upload Method</h2>
-        <div className="grid md:grid-cols-2 gap-4">
-          <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:border-orange-500"
-                 style={{ borderColor: uploadType === 'csv' ? '#ff8c42' : '#e5e7eb' }}>
-            <input
-              type="radio"
-              value="csv"
-              checked={uploadType === 'csv'}
-              onChange={(e) => setUploadType(e.target.value)}
-              className="mr-3"
-            />
-            <div>
-              <p className="font-medium text-gray-900">CSV Upload</p>
-              <p className="text-sm text-gray-600">Upload a CSV file with results</p>
-            </div>
-          </label>
+      {/* Filters */}
+      <div className="bg-white rounded-2xl shadow-card p-4 grid grid-cols-3 gap-4">
+        <Select label="Class" options={classes.map(c=>({value:c.id,label:c.name}))} value={filters.class_id} onChange={e=>setFilters({...filters,class_id:e.target.value})} placeholder="Select Class" />
+        <Select label="Subject" options={filteredSubjects.map(s=>({value:s.id,label:s.name}))} value={filters.subject_id} onChange={e=>setFilters({...filters,subject_id:e.target.value})} placeholder="Select Subject" />
+        <Select label="Term" options={terms.map(t=>({value:t.id,label:`${t.name} (${t.session_name})`}))} value={filters.term_id} onChange={e=>setFilters({...filters,term_id:e.target.value})} placeholder="Select Term" />
+      </div>
 
-          <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:border-orange-500"
-                 style={{ borderColor: uploadType === 'grid' ? '#ff8c42' : '#e5e7eb' }}>
-            <input
-              type="radio"
-              value="grid"
-              checked={uploadType === 'grid'}
-              onChange={(e) => setUploadType(e.target.value)}
-              className="mr-3"
-            />
-            <div>
-              <p className="font-medium text-gray-900">Grid Entry</p>
-              <p className="text-sm text-gray-600">Enter results in a spreadsheet format</p>
-            </div>
-          </label>
+      {/* Scores grid */}
+      {!filters.class_id ? (
+        <div className="bg-white rounded-2xl shadow-card p-16 text-center text-gray-400">
+          <p className="font-medium">Select a class, subject, and term to start entering scores.</p>
         </div>
-      </Card>
-
-      {uploadType === 'csv' && (
+      ) : loading ? (
+        <div className="flex justify-center py-16"><LoadingSpinner /></div>
+      ) : students.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-card p-16 text-center text-gray-400">
+          <p className="font-medium">No students in this class.</p>
+        </div>
+      ) : (
         <>
-          {/* CSV Upload */}
-          <Card>
-            <h2 className="text-lg font-bold mb-4 text-gray-900">Upload CSV File</h2>
+          {!template && (
+            <Alert type="warning" message="No result template assigned to this class. Contact the admin." />
+          )}
 
-            <form onSubmit={handleUpload} className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-orange-500 transition-colors">
-                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-600 mb-2">Drag and drop your CSV file here, or click to select</p>
-                <input
-                  id="fileInput"
-                  type="file"
-                  accept=".csv,.xlsx"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <label htmlFor="fileInput" className="text-orange-600 hover:text-orange-700 cursor-pointer font-medium">
-                  Select file
-                </label>
-              </div>
-
-              {file && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <p className="text-green-800 font-medium">✓ {file.name} selected</p>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  loading={loading}
-                  disabled={loading || !file}
-                  className="flex-1 flex items-center justify-center gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  Upload & Submit
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={downloadTemplate}
-                  className="flex-1 flex items-center justify-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Download Template
-                </Button>
-              </div>
-            </form>
-
-            {/* Instructions */}
-            <div className="mt-6 pt-6 border-t">
-              <h3 className="font-bold text-gray-900 mb-3">File Format Requirements</h3>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li>✓ CSV or Excel format (.csv, .xlsx)</li>
-                <li>✓ First row must contain headers</li>
-                <li>✓ Required columns: Student Name, Admission No, Subject Scores</li>
-                <li>✓ Maximum file size: 5MB</li>
-              </ul>
-            </div>
-          </Card>
-        </>
-      )}
-
-      {uploadType === 'grid' && (
-        <>
-          {/* Grid Entry */}
-          <Card>
-            <h2 className="text-lg font-bold mb-4 text-gray-900">Excel-like Grid Entry</h2>
-            <p className="text-gray-600 mb-4">Enter results directly in the grid below</p>
-
+          <div className="bg-white rounded-2xl shadow-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-100">
-                    <th className="border p-2 text-left text-sm font-medium">Student</th>
-                    <th className="border p-2 text-center text-sm font-medium">Mathematics</th>
-                    <th className="border p-2 text-center text-sm font-medium">English</th>
-                    <th className="border p-2 text-center text-sm font-medium">Physics</th>
-                    <th className="border p-2 text-center text-sm font-medium">Chemistry</th>
-                    <th className="border p-2 text-center text-sm font-medium">Average</th>
+              <table className="w-full text-sm">
+                <thead className="bg-[#1A1A1A] text-white">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Student</th>
+                    {template?.components?.map(c => (
+                      <th key={c.name} className="px-3 py-3 text-center text-xs font-semibold uppercase">
+                        {c.name} <span className="opacity-60">/{c.max_score}</span>
+                      </th>
+                    ))}
+                    <th className="px-4 py-3 text-center text-xs font-semibold uppercase">Total</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Comment</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {[1, 2, 3].map((row) => (
-                    <tr key={row}>
-                      <td className="border p-2">
-                        <input type="text" placeholder="Name" className="w-full px-2 py-1 border rounded" />
-                      </td>
-                      <td className="border p-2">
-                        <input type="number" placeholder="0" className="w-full px-2 py-1 border rounded text-center" max="100" />
-                      </td>
-                      <td className="border p-2">
-                        <input type="number" placeholder="0" className="w-full px-2 py-1 border rounded text-center" max="100" />
-                      </td>
-                      <td className="border p-2">
-                        <input type="number" placeholder="0" className="w-full px-2 py-1 border rounded text-center" max="100" />
-                      </td>
-                      <td className="border p-2">
-                        <input type="number" placeholder="0" className="w-full px-2 py-1 border rounded text-center" max="100" />
-                      </td>
-                      <td className="border p-2 bg-gray-50 text-center font-medium">-</td>
-                    </tr>
-                  ))}
+                <tbody className="divide-y divide-[#E5E5E5]">
+                  {students.map((s, i) => {
+                    const studentScores = scores[s.id] || {}
+                    const total = template?.components?.reduce((sum, c) => sum + Number(studentScores[c.name] || 0), 0) || 0
+                    return (
+                      <tr key={s.id} className={i%2===0?'bg-white':'bg-[#F5F5F5]'}>
+                        <td className="px-4 py-2 font-medium whitespace-nowrap">
+                          {s.first_name} {s.surname}
+                          <span className="block text-xs text-gray-400">{s.admission_number}</span>
+                        </td>
+                        {template?.components?.map(c => (
+                          <td key={c.name} className="px-3 py-2">
+                            <input
+                              type="number" min="0" max={c.max_score} step="0.5"
+                              value={studentScores[c.name] || ''}
+                              onChange={e => setScore(s.id, c.name, e.target.value)}
+                              className="w-16 text-center px-2 py-1.5 border border-[#E5E5E5] rounded-lg text-sm focus:outline-none focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00]/30"
+                            />
+                          </td>
+                        ))}
+                        <td className="px-4 py-2 text-center font-bold text-[#FF6B00]">{total}</td>
+                        <td className="px-4 py-2">
+                          <input
+                            type="text"
+                            value={comments[s.id] || ''}
+                            onChange={e => setComments(prev => ({ ...prev, [s.id]: e.target.value }))}
+                            placeholder="Optional..."
+                            className="w-full px-2 py-1.5 border border-[#E5E5E5] rounded-lg text-sm focus:outline-none focus:border-[#FF6B00]"
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
+          </div>
 
-            <div className="mt-6 flex gap-2">
-              <Button variant="primary" className="flex-1">
-                Save as Draft
-              </Button>
-              <Button variant="secondary" className="flex-1">
-                Submit for Review
-              </Button>
-            </div>
-          </Card>
+          {/* Teacher comment */}
+          <div className="bg-white rounded-2xl shadow-card p-5">
+            <label className="text-sm font-medium text-[#333333] block mb-2">Class Teacher's General Comment</label>
+            <textarea rows={3} value={teacherComment} onChange={e=>setTeacherComment(e.target.value)}
+              className="w-full px-3 py-2.5 border border-[#E5E5E5] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6B00]/30 focus:border-[#FF6B00] resize-none"
+              placeholder="e.g. A hardworking and dedicated student..." />
+          </div>
         </>
       )}
-
-      {/* Recent Uploads */}
-      <Card>
-        <h2 className="text-lg font-bold mb-4 text-gray-900">Recent Uploads</h2>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <p className="font-medium text-gray-900">Mathematics Results - SS1</p>
-              <p className="text-sm text-gray-600">45 students • Approved</p>
-            </div>
-            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">Approved</span>
-          </div>
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <p className="font-medium text-gray-900">English Results - SS1</p>
-              <p className="text-sm text-gray-600">45 students • Pending Review</p>
-            </div>
-            <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">Pending</span>
-          </div>
-        </div>
-      </Card>
     </div>
   )
 }

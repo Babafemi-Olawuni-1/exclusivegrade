@@ -1,391 +1,178 @@
-import { useState, useEffect } from 'react'
-import { Plus, Trash2, Download, Search, Copy } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Plus, Trash2, Filter, Key } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import { downloadCSV } from '../../utils/helpers'
-import Button from '../../components/Button'
-import Input from '../../components/Input'
-import Select from '../../components/Select'
-import Modal from '../../components/Modal'
-import Card from '../../components/Card'
-import Alert from '../../components/Alert'
-import Pagination from '../../components/Pagination'
+import Modal from '../../components/common/Modal'
+import Button from '../../components/forms/Button'
+import Input from '../../components/forms/Input'
+import Select from '../../components/forms/Select'
+import Alert from '../../components/common/Alert'
+import Badge from '../../components/common/Badge'
+import LoadingSpinner from '../../components/common/LoadingSpinner'
+import { formatDate } from '../../utils/helpers'
 
-export default function PinManagement() {
-  const { get, post, del } = useApi()
+export default function Pins() {
+  const { get, post, del, loading } = useApi()
   const [pins, setPins] = useState([])
   const [students, setStudents] = useState([])
   const [classes, setClasses] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [success, setSuccess] = useState(null)
-  const [searchTerm, setSearchTerm] = useState('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [singleModal, setSingleModal] = useState(false)
+  const [bulkModal, setBulkModal] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [filterStatus, setFilterStatus] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
 
-  const [showSingleModal, setShowSingleModal] = useState(false)
-  const [showBulkModal, setShowBulkModal] = useState(false)
-  const [singleFormData, setSingleFormData] = useState({
-    student_id: '',
-    usage_limit: '1',
-  })
-  const [bulkFormData, setBulkFormData] = useState({
-    class_id: '',
-    quantity: '50',
-  })
+  const [singleForm, setSingleForm] = useState({ student_id:'', usage_limit:1, expiry_days:30 })
+  const [bulkForm, setBulkForm] = useState({ class_id:'', usage_limit:1, expiry_days:30 })
 
+  const fetchPins = useCallback(async () => {
+    try {
+      const params = {}
+      if (filterStatus) params.status = filterStatus
+      const res = await get('/pins', params)
+      setPins(res.pins || [])
+    } catch { setError('Failed to load PINs.') }
+  }, [filterStatus])
+
+  useEffect(() => { fetchPins() }, [fetchPins])
   useEffect(() => {
-    fetchPins()
-    fetchStudents()
-    fetchClasses()
+    Promise.all([get('/students'), get('/classes')]).then(([s, c]) => {
+      setStudents(s.students || [])
+      setClasses(c.classes || [])
+    }).catch(() => {})
   }, [])
 
-  const fetchPins = async () => {
-    try {
-      setLoading(true)
-      const response = await get('/pins')
-      if (response.success) {
-        setPins(response.data)
-      } else {
-        setError(response.message || 'Failed to load PINs')
-      }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchStudents = async () => {
-    try {
-      const response = await get('/students')
-      if (response.success) {
-        setStudents(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to fetch students', err)
-    }
-  }
-
-  const fetchClasses = async () => {
-    try {
-      const response = await get('/classes')
-      if (response.success) {
-        setClasses(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to fetch classes', err)
-    }
-  }
-
-  const handleGenerateSingle = async (e) => {
+  const handleSingle = async (e) => {
     e.preventDefault()
+    setSubmitting(true)
+    setError('')
     try {
-      const response = await post('/pins/generate-single', singleFormData)
-      if (response.success) {
-        setSuccess('PIN generated successfully')
-        setShowSingleModal(false)
-        setSingleFormData({ student_id: '', usage_limit: '1' })
-        fetchPins()
-      }
-    } catch (err) {
-      setError(err.message)
-    }
+      const res = await post('/pins?action=single', singleForm)
+      setSuccess(`PIN generated: ${res.pin_code}`)
+      setSingleModal(false)
+      fetchPins()
+    } catch (err) { setError(err.message) }
+    finally { setSubmitting(false) }
   }
 
-  const handleGenerateBulk = async (e) => {
+  const handleBulk = async (e) => {
     e.preventDefault()
+    setSubmitting(true)
+    setError('')
     try {
-      const response = await post('/pins/generate-bulk', bulkFormData)
-      if (response.success) {
-        setSuccess(`${bulkFormData.quantity} PINs generated successfully`)
-        setShowBulkModal(false)
-        setBulkFormData({ class_id: '', quantity: '50' })
-        fetchPins()
-      }
-    } catch (err) {
-      setError(err.message)
-    }
+      const res = await post('/pins?action=bulk', bulkForm)
+      setSuccess(`${res.count || 'Multiple'} PINs generated successfully.`)
+      setBulkModal(false)
+      fetchPins()
+    } catch (err) { setError(err.message) }
+    finally { setSubmitting(false) }
   }
 
-  const handleDeletePin = async (pinId) => {
-    if (!window.confirm('Are you sure you want to delete this PIN?')) return
-
+  const handleDeactivate = async (id) => {
+    if (!confirm('Deactivate this PIN?')) return
     try {
-      const response = await del(`/pins/${pinId}`)
-      if (response.success) {
-        setSuccess('PIN deleted')
-        fetchPins()
-      }
-    } catch (err) {
-      setError(err.message)
-    }
+      await del(`/pins?id=${id}`)
+      setSuccess('PIN deactivated.')
+      fetchPins()
+    } catch (err) { setError(err.message) }
   }
 
-  const handleCopyPin = (pinCode) => {
-    navigator.clipboard.writeText(pinCode)
-    setSuccess('PIN copied to clipboard')
+  const statusBadge = (status) => {
+    const map = { active:'success', used:'gray', expired:'error', inactive:'warning' }
+    return <Badge variant={map[status] || 'gray'}>{status}</Badge>
   }
-
-  const handleDownloadPins = () => {
-    const csvData = filteredPins.map(pin => ({
-      'PIN Code': pin.pin_code,
-      'Student': `${pin.student?.first_name} ${pin.student?.last_name}`,
-      'Admission No': pin.student?.admission_number,
-      'Status': pin.status,
-      'Usage': `${pin.usage_count}/${pin.usage_limit}`,
-      'Expires': pin.expiry_date ? new Date(pin.expiry_date).toLocaleDateString() : 'No',
-    }))
-    downloadCSV(csvData, 'pins-export.csv')
-  }
-
-  const filteredPins = pins.filter(pin => {
-    const matchesSearch =
-      pin.pin_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pin.student?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pin.student?.last_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = !filterStatus || pin.status === filterStatus
-    return matchesSearch && matchesStatus
-  })
-
-  const itemsPerPage = 10
-  const totalPages = Math.ceil(filteredPins.length / itemsPerPage)
-  const paginatedPins = filteredPins.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  )
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">PIN Management</h1>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-[#1A1A1A]">PIN Management</h1>
+          <p className="text-sm text-gray-500">{pins.length} PINs generated</p>
+        </div>
         <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            onClick={handleDownloadPins}
-            className="flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Download
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setShowBulkModal(true)}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Bulk PINs
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => setShowSingleModal(true)}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Generate PIN
-          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSingleModal(true)}><Key className="w-4 h-4" /> Single PIN</Button>
+          <Button size="sm" onClick={() => setBulkModal(true)}><Plus className="w-4 h-4" /> Bulk Generate</Button>
         </div>
       </div>
 
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} dismissible />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} dismissible />}
+      {error   && <Alert type="error"   message={error}   onClose={() => setError('')} />}
+      {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
 
-      {/* Filters */}
-      <Card>
-        <div className="grid md:grid-cols-2 gap-4">
-          <Input
-            placeholder="Search by PIN or student name..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value)
-              setCurrentPage(1)
-            }}
-            icon={Search}
-          />
-          <Select
-            options={[
-              { label: 'All Statuses', value: '' },
-              { label: 'Active', value: 'active' },
-              { label: 'Used', value: 'used' },
-              { label: 'Expired', value: 'expired' },
-            ]}
-            value={filterStatus}
-            onChange={(e) => {
-              setFilterStatus(e.target.value)
-              setCurrentPage(1)
-            }}
-          />
-        </div>
-      </Card>
+      {/* Filter */}
+      <Select
+        options={[{value:'',label:'All Statuses'},{value:'active',label:'Active'},{value:'used',label:'Used'},{value:'expired',label:'Expired'}]}
+        value={filterStatus}
+        onChange={e => setFilterStatus(e.target.value)}
+        placeholder={null}
+        className="w-48"
+      />
 
-      {/* PINs Table */}
-      <Card noPadding>
+      {/* Table */}
+      <div className="bg-white rounded-2xl shadow-card overflow-hidden">
         {loading ? (
-          <div className="p-6 text-center text-gray-600">Loading...</div>
-        ) : paginatedPins.length > 0 ? (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">PIN Code</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Student</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Usage</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Expiry</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedPins.map((pin, idx) => (
-                    <tr key={idx} className="table-row border-b">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <code className="font-mono font-bold text-orange-600">{pin.pin_code}</code>
-                          <button
-                            onClick={() => handleCopyPin(pin.pin_code)}
-                            className="text-gray-500 hover:text-orange-600"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-900">
-                        <p className="font-medium">{pin.student?.first_name} {pin.student?.last_name}</p>
-                        <p className="text-sm text-gray-600">{pin.student?.admission_number}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          pin.status === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : pin.status === 'used'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {pin.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-900">
-                        {pin.usage_count} / {pin.usage_limit}
-                      </td>
-                      <td className="px-6 py-4 text-gray-900">
-                        {pin.expiry_date
-                          ? new Date(pin.expiry_date).toLocaleDateString()
-                          : 'No expiry'}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => handleDeletePin(pin.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {totalPages > 1 && (
-              <div className="p-6 border-t flex justify-center">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
-              </div>
-            )}
-          </>
+          <div className="flex justify-center py-16"><LoadingSpinner /></div>
+        ) : pins.length === 0 ? (
+          <div className="text-center py-16 text-gray-400">
+            <Key className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No PINs found.</p>
+          </div>
         ) : (
-          <div className="p-6 text-center text-gray-600">No PINs generated yet</div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-[#F5F5F5] border-b border-[#E5E5E5]">
+                <tr>
+                  {['PIN Code','Student','Usage','Expires','Status','Actions'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E5E5E5]">
+                {pins.map(p => (
+                  <tr key={p.id} className="hover:bg-[#F5F5F5] transition-colors">
+                    <td className="px-4 py-3 font-mono font-bold text-[#FF6B00]">{p.pin_code}</td>
+                    <td className="px-4 py-3">{p.student_name || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">{p.times_used}/{p.usage_limit}</td>
+                    <td className="px-4 py-3 text-gray-600">{formatDate(p.expiry_date)}</td>
+                    <td className="px-4 py-3">{statusBadge(p.status)}</td>
+                    <td className="px-4 py-3">
+                      {p.status === 'active' && (
+                        <button onClick={() => handleDeactivate(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </Card>
+      </div>
 
-      {/* Generate Single PIN Modal */}
-      <Modal
-        isOpen={showSingleModal}
-        onClose={() => setShowSingleModal(false)}
-        title="Generate Single PIN"
+      {/* Single PIN Modal */}
+      <Modal isOpen={singleModal} onClose={() => setSingleModal(false)} title="Generate Single PIN" size="sm"
+        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setSingleModal(false)}>Cancel</Button><Button form="single-form" type="submit" loading={submitting}>Generate PIN</Button></div>}
       >
-        <form onSubmit={handleGenerateSingle} className="space-y-4">
-          <Select
-            label="Select Student *"
-            value={singleFormData.student_id}
-            onChange={(e) => setSingleFormData({ ...singleFormData, student_id: e.target.value })}
-            options={students.map(s => ({
-              label: `${s.first_name} ${s.last_name} (${s.admission_number})`,
-              value: s.id,
-            }))}
-            required
-          />
-          <Select
-            label="Usage Limit *"
-            value={singleFormData.usage_limit}
-            onChange={(e) => setSingleFormData({ ...singleFormData, usage_limit: e.target.value })}
-            options={[
-              { label: 'Unlimited', value: '0' },
-              { label: '1 time', value: '1' },
-              { label: '2 times', value: '2' },
-              { label: '5 times', value: '5' },
-            ]}
-            required
-          />
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" variant="primary" className="flex-1">
-              Generate PIN
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowSingleModal(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
+        <form id="single-form" onSubmit={handleSingle} className="space-y-4">
+          <Select label="Student" required options={students.map(s => ({ value: s.id, label: `${s.first_name} ${s.surname} (${s.admission_number})` }))} value={singleForm.student_id} onChange={e => setSingleForm({...singleForm, student_id: e.target.value})} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Usage Limit" type="number" min="1" value={singleForm.usage_limit} onChange={e => setSingleForm({...singleForm, usage_limit: e.target.value})} />
+            <Input label="Expires in (days)" type="number" min="1" value={singleForm.expiry_days} onChange={e => setSingleForm({...singleForm, expiry_days: e.target.value})} />
           </div>
         </form>
       </Modal>
 
-      {/* Generate Bulk PINs Modal */}
-      <Modal
-        isOpen={showBulkModal}
-        onClose={() => setShowBulkModal(false)}
-        title="Generate Bulk PINs"
+      {/* Bulk PIN Modal */}
+      <Modal isOpen={bulkModal} onClose={() => setBulkModal(false)} title="Bulk Generate PINs" size="sm"
+        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setBulkModal(false)}>Cancel</Button><Button form="bulk-form" type="submit" loading={submitting}>Generate PINs</Button></div>}
       >
-        <form onSubmit={handleGenerateBulk} className="space-y-4">
-          <Select
-            label="Select Class *"
-            value={bulkFormData.class_id}
-            onChange={(e) => setBulkFormData({ ...bulkFormData, class_id: e.target.value })}
-            options={classes.map(c => ({
-              label: c.name,
-              value: c.id,
-            }))}
-            required
-          />
-          <Input
-            label="Quantity *"
-            type="number"
-            value={bulkFormData.quantity}
-            onChange={(e) => setBulkFormData({ ...bulkFormData, quantity: e.target.value })}
-            min="1"
-            required
-          />
-          <div className="bg-blue-50 p-3 rounded-lg text-sm">
-            <p className="text-gray-700">This will generate one PIN per student in the selected class.</p>
+        <form id="bulk-form" onSubmit={handleBulk} className="space-y-4">
+          <Select label="Class" required options={classes.map(c => ({ value: c.id, label: c.name }))} value={bulkForm.class_id} onChange={e => setBulkForm({...bulkForm, class_id: e.target.value})} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Usage Limit" type="number" min="1" value={bulkForm.usage_limit} onChange={e => setBulkForm({...bulkForm, usage_limit: e.target.value})} />
+            <Input label="Expires in (days)" type="number" min="1" value={bulkForm.expiry_days} onChange={e => setBulkForm({...bulkForm, expiry_days: e.target.value})} />
           </div>
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" variant="primary" className="flex-1">
-              Generate {bulkFormData.quantity} PINs
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setShowBulkModal(false)}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-          </div>
+          <Alert type="info" message="One PIN will be generated for each student in the selected class." />
         </form>
       </Modal>
     </div>

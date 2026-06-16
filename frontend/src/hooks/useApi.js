@@ -1,44 +1,32 @@
-import { API_BASE_URL } from '../config'
+import { useState, useCallback } from 'react'
+import api from '../api'
 
 export function useApi() {
-  const getToken = () => {
-    return localStorage.getItem('gg_token')
-  }
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
-  const request = async (method, path, body = null) => {
-    const token = getToken()
-    
-    const headers = {
-      'Content-Type': 'application/json'
+  const request = useCallback(async (method, url, data = null, config = {}) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await api({ method, url, data, ...config })
+      return response.data
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Request failed'
+      setError(msg)
+      throw new Error(msg)
+    } finally {
+      setLoading(false)
     }
-    
-    if (token) {
-      headers['Authorization'] = 'Bearer ' + token
-    }
-    
-    const options = {
-      method: method,
-      headers: headers
-    }
-    
-    if (body) {
-      options.body = JSON.stringify(body)
-    }
-    
-    const response = await fetch(API_BASE_URL + path, options)
-    const data = await response.json()
-    
-    if (!data.success) {
-      throw new Error(data.message || 'Request failed')
-    }
-    
-    return data
-  }
+  }, [])
 
-  const get = (path) => request('GET', path)
-  const post = (path, body) => request('POST', path, body)
-  const put = (path, body) => request('PUT', path, body)
-  const del = (path) => request('DELETE', path)
+  const get    = useCallback((url, params) => request('GET', url, null, { params }), [request])
+  const post   = useCallback((url, data, cfg) => request('POST', url, data, cfg), [request])
+  const put    = useCallback((url, data) => request('PUT', url, data), [request])
+  const del    = useCallback((url) => request('DELETE', url), [request])
+  const patch  = useCallback((url, data) => request('PATCH', url, data), [request])
 
-  return { get, post, put, del }
+  return { get, post, put, del, patch, loading, error, setError }
 }
+
+export default useApi
