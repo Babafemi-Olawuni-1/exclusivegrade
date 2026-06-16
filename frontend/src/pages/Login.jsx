@@ -23,25 +23,25 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-
     try {
       const payload = tab === 'admin'
         ? { login_type: 'email',    email:    adminForm.email,    password: adminForm.password }
         : { login_type: 'username', username: teacherForm.username, password: teacherForm.password }
 
+      // res is the inner data: { token, user, school }
       const res = await post('/auth/login', payload)
 
-      if (res.token) {
+      if (res?.token) {
         login({ token: res.token, user: res.user, school: res.school })
         const role = res.user?.role
-        if (role === 'super_admin')                        navigate('/super')
-        else if (role === 'admin' || role === 'school_admin') navigate('/admin')
-        else                                               navigate('/teacher')
+        if (role === 'super_admin')                             navigate('/super')
+        else if (role === 'school_admin' || role === 'admin')  navigate('/admin')
+        else                                                    navigate('/teacher')
       } else {
-        setError(res.message || 'Login failed. Please check your credentials.')
+        setError('Login failed. Please check your credentials.')
       }
     } catch (err) {
-      setError(err.message || 'Login failed. Please check your credentials.')
+      setError(err.message || 'Login failed.')
     }
   }
 

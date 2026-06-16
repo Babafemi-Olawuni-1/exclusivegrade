@@ -39,14 +39,15 @@ export default function Students() {
       if (search) params.search = search
       if (classFilter) params.class_id = classFilter
       const res = await get('/students', params)
-      setStudents(res.students || [])
+      // backend returns { items: [...], total, page, per_page }
+      setStudents(res.items || res.students || [])
       setTotal(res.total || 0)
     } catch { setError('Failed to load students.') }
   }, [page, search, classFilter])
 
   useEffect(() => { fetchStudents() }, [fetchStudents])
   useEffect(() => {
-    get('/classes').then(r => setClasses(r.classes || [])).catch(() => {})
+    get('/classes').then(r => setClasses(Array.isArray(r) ? r : (r.items || r.classes || []))).catch(() => {})
   }, [])
 
   const openAdd  = () => { setForm(EMPTY); setEditing(null); setModalOpen(true) }

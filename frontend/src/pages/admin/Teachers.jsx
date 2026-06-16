@@ -29,7 +29,8 @@ export default function Teachers() {
   const fetchTeachers = useCallback(async () => {
     try {
       const res = await get('/teachers')
-      setTeachers(res.teachers || [])
+      // backend returns { items: [...], total }
+      setTeachers(Array.isArray(res) ? res : (res.items || res.teachers || []))
     } catch { setError('Failed to load teachers.') }
   }, [])
 

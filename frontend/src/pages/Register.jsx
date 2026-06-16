@@ -27,12 +27,13 @@ export default function Register() {
     if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return }
 
     try {
+      // res is the inner data: { token, user, school }
       const res = await post('/auth/register', form)
-      if (res.token) {
+      if (res?.token) {
         login({ token: res.token, user: res.user, school: res.school })
         navigate('/admin')
       } else {
-        setError(res.message || 'Registration failed.')
+        setError('Registration failed.')
       }
     } catch (err) {
       setError(err.message || 'Registration failed.')
