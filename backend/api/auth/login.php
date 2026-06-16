@@ -60,7 +60,7 @@ if (!$user['is_active']) {
 // Get school info (if not super admin)
 $school = null;
 if ($user['school_id']) {
-    $school = fetchOne("SELECT id, name, slug, plan, wallet_balance, logo_url, primary_color FROM schools WHERE id = ?", array($user['school_id']));
+    $school = fetchOne("SELECT id, name, slug, plan, status, wallet_balance, logo_url, primary_color FROM schools WHERE id = ?", array($user['school_id']));
     
     if ($school && $school['status'] !== 'active') {
         error('School account is not active', 403);

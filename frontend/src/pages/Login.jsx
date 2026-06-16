@@ -31,12 +31,12 @@ export default function Login() {
 
       const res = await post('/auth/login', payload)
 
-      if (res.success) {
+      if (res.token) {
         login({ token: res.token, user: res.user, school: res.school })
         const role = res.user?.role
-        if (role === 'super_admin') navigate('/super')
-        else if (role === 'admin')  navigate('/admin')
-        else                        navigate('/teacher')
+        if (role === 'super_admin')                        navigate('/super')
+        else if (role === 'admin' || role === 'school_admin') navigate('/admin')
+        else                                               navigate('/teacher')
       } else {
         setError(res.message || 'Login failed. Please check your credentials.')
       }
@@ -137,7 +137,8 @@ export default function Login() {
           {/* Demo hint */}
           <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-800">
             <p className="font-semibold mb-1">Test credentials</p>
-            <p>Email: admin@demo.com · Password: password123</p>
+            <p>School Admin — Email: <strong>test@academy.com</strong> · Password: <strong>password123</strong></p>
+            <p className="mt-1">Super Admin — Email: <strong>admin@exclusivegrade.com</strong> · Password: <strong>password</strong></p>
           </div>
         </div>
       </div>

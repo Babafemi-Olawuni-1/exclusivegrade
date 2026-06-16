@@ -28,7 +28,7 @@ export default function Register() {
 
     try {
       const res = await post('/auth/register', form)
-      if (res.success) {
+      if (res.token) {
         login({ token: res.token, user: res.user, school: res.school })
         navigate('/admin')
       } else {
