@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 16, 2026 at 02:56 AM
+-- Generation Time: Jun 19, 2026 at 09:25 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -34,13 +34,6 @@ CREATE TABLE `academic_sessions` (
   `is_current` tinyint(1) DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `academic_sessions`
---
-
-INSERT INTO `academic_sessions` (`id`, `school_id`, `name`, `is_current`, `created_at`) VALUES
-(1, 1, '2024/2025 Academic Session', 1, '2026-06-15 22:28:05');
 
 -- --------------------------------------------------------
 
@@ -93,13 +86,6 @@ CREATE TABLE `attendance` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `attendance`
---
-
-INSERT INTO `attendance` (`id`, `student_id`, `class_id`, `term_id`, `days_present`, `days_absent`, `days_late`, `comment`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 1, 86, 3, 2, 'Monday attendance', '2026-06-15 22:59:39', '2026-06-15 23:03:34');
-
 -- --------------------------------------------------------
 
 --
@@ -119,8 +105,7 @@ CREATE TABLE `auth_tokens` (
 --
 
 INSERT INTO `auth_tokens` (`id`, `user_id`, `token`, `expires_at`, `created_at`) VALUES
-(34, 1, '9acfec76edb191f0f89f7bdaf403bda2d264a3b1be66c3833cf65adb0bc40d7e', '2026-07-16 01:15:43', '2026-06-15 23:15:43'),
-(37, 2, '65263461e5bd35833f79426a72ed58b2b2b976792303ba34847b612dbaa26111', '2026-07-16 01:27:20', '2026-06-15 23:27:20');
+(67, 8, 'ea7ac713d59f3ad791776524ade79a831ec3dd796dc435c99a8acd3519a925a9', '2026-07-19 09:25:01', '2026-06-19 07:25:01');
 
 -- --------------------------------------------------------
 
@@ -178,8 +163,32 @@ CREATE TABLE `classes` (
 --
 
 INSERT INTO `classes` (`id`, `school_id`, `name`, `display_order`, `promotion_class_id`, `description`, `created_at`) VALUES
-(1, 1, 'JSS 1A', 0, NULL, 'Junior Secondary School Year 1 - Section A', '2026-06-15 21:52:34'),
-(3, 1, 'JSS 2', 0, NULL, NULL, '2026-06-15 22:03:28');
+(6, 3, 'KG 1', 0, NULL, 'Kindergarten Year 1', '2026-06-19 01:32:22'),
+(7, 3, 'KG 2', 0, NULL, 'Kindergarten Year 2', '2026-06-19 01:32:22'),
+(8, 3, 'Primary 1', 0, NULL, 'Primary School Year 1', '2026-06-19 01:32:22'),
+(9, 3, 'Primary 2', 0, NULL, 'Primary School Year 2', '2026-06-19 01:32:22'),
+(10, 3, 'JSS 3', 0, NULL, 'Junior Secondary School Year 3', '2026-06-19 01:32:22'),
+(11, 3, 'JSS 2', 0, NULL, 'Junior Secondary School Year 2', '2026-06-19 01:32:22'),
+(12, 3, 'SSS 2', 0, NULL, 'Senior Secondary School Year 2', '2026-06-19 01:32:22'),
+(13, 3, 'SSS 3', 0, NULL, 'Senior Secondary School Year 3', '2026-06-19 01:32:22'),
+(14, 3, 'KG 3', 0, NULL, 'Kindergarten Year 3', '2026-06-19 01:32:22'),
+(15, 3, 'Primary 3', 0, NULL, 'Primary School Year 3', '2026-06-19 01:32:22'),
+(16, 3, 'Primary 5', 0, NULL, 'Primary School Year 5', '2026-06-19 01:32:22'),
+(17, 3, 'Primary 4', 0, NULL, 'Primary School Year 4', '2026-06-19 01:32:22'),
+(18, 3, 'Primary 6', 0, NULL, 'Primary School Year 6', '2026-06-19 01:32:22'),
+(19, 3, 'SSS 1', 0, NULL, 'Senior Secondary School Year 1', '2026-06-19 01:32:22'),
+(20, 3, 'JSS 1', 0, NULL, 'Junior Secondary School Year 1', '2026-06-19 01:32:42'),
+(21, 3, 'Nur 2', 0, NULL, 'Nursery Year 2', '2026-06-19 01:36:39'),
+(22, 3, 'Nur 1', 0, NULL, 'Nursery Year 1', '2026-06-19 01:36:39'),
+(23, 3, 'SSS 1 Commercial', 0, NULL, 'Senior Secondary School Year 1 - Commercial', '2026-06-19 01:36:39'),
+(24, 3, 'SSS 1 Science', 0, NULL, 'Senior Secondary School Year 1 - Science', '2026-06-19 01:36:39'),
+(25, 3, 'SSS 1 Arts', 0, NULL, 'Senior Secondary School Year 1 - Arts', '2026-06-19 01:36:39'),
+(26, 3, 'SSS 2 Science', 0, NULL, 'Senior Secondary School Year 2 - Science', '2026-06-19 01:36:39'),
+(27, 3, 'SSS 3 Science', 0, NULL, 'Senior Secondary School Year 3 - Science', '2026-06-19 01:36:39'),
+(28, 3, 'SSS 2 Commercial', 0, NULL, 'Senior Secondary School Year 2 - Commercial', '2026-06-19 01:36:39'),
+(29, 3, 'SSS 2 Arts', 0, NULL, 'Senior Secondary School Year 2 - Arts', '2026-06-19 01:36:39'),
+(30, 3, 'SSS 3 Arts', 0, NULL, 'Senior Secondary School Year 3 - Arts', '2026-06-19 01:36:39'),
+(31, 3, 'SSS 3 Commercial', 0, NULL, 'Senior Secondary School Year 3 - Commercial', '2026-06-19 01:36:39');
 
 -- --------------------------------------------------------
 
@@ -200,14 +209,13 @@ CREATE TABLE `class_subjects` (
 --
 
 INSERT INTO `class_subjects` (`id`, `class_id`, `subject_id`, `teacher_id`, `created_at`) VALUES
-(1, 1, 1, NULL, '2026-06-15 22:02:35'),
-(2, 1, 2, NULL, '2026-06-15 22:03:08'),
-(3, 1, 3, NULL, '2026-06-15 22:09:34'),
-(4, 1, 4, NULL, '2026-06-15 22:09:34'),
-(5, 3, 1, NULL, '2026-06-15 22:13:09'),
-(6, 3, 2, NULL, '2026-06-15 22:13:09'),
-(7, 3, 3, NULL, '2026-06-15 22:13:10'),
-(8, 3, 4, NULL, '2026-06-15 22:13:10');
+(9, 6, 5, NULL, '2026-06-19 01:48:44'),
+(10, 6, 6, NULL, '2026-06-19 01:49:03'),
+(11, 6, 7, NULL, '2026-06-19 01:49:03'),
+(12, 6, 8, NULL, '2026-06-19 01:49:03'),
+(13, 6, 9, NULL, '2026-06-19 01:52:11'),
+(14, 6, 10, NULL, '2026-06-19 01:52:11'),
+(15, 6, 11, NULL, '2026-06-19 01:52:11');
 
 -- --------------------------------------------------------
 
@@ -283,15 +291,6 @@ CREATE TABLE `cognitive_skills` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `cognitive_skills`
---
-
-INSERT INTO `cognitive_skills` (`id`, `template_id`, `name`, `description`, `display_order`, `created_at`) VALUES
-(1, 1, 'Handwriting', 'Quality of handwriting', 1, '2026-06-15 22:54:20'),
-(2, 1, 'Verbal Fluency', 'Ability to express ideas', 2, '2026-06-15 22:54:20'),
-(3, 1, 'Social Interaction', 'Interaction with peers', 3, '2026-06-15 22:54:20');
-
 -- --------------------------------------------------------
 
 --
@@ -304,13 +303,6 @@ CREATE TABLE `cognitive_templates` (
   `name` varchar(100) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `cognitive_templates`
---
-
-INSERT INTO `cognitive_templates` (`id`, `school_id`, `name`, `created_at`) VALUES
-(1, 1, 'Primary School Skills', '2026-06-15 22:54:20');
 
 -- --------------------------------------------------------
 
@@ -342,13 +334,6 @@ CREATE TABLE `id_cards` (
   `file_url` varchar(500) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `id_cards`
---
-
-INSERT INTO `id_cards` (`id`, `school_id`, `student_id`, `template`, `file_url`, `created_at`) VALUES
-(1, 1, 1, 'classic', NULL, '2026-06-15 23:27:21');
 
 -- --------------------------------------------------------
 
@@ -405,13 +390,6 @@ CREATE TABLE `pins` (
   `expires_at` datetime NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `pins`
---
-
-INSERT INTO `pins` (`id`, `school_id`, `student_id`, `pin_code`, `status`, `usage_limit`, `usage_count`, `cost`, `used_at`, `expires_at`, `created_at`) VALUES
-(1, 1, 1, 'E64F1E', 'unused', 3, 0, 100.00, NULL, '2027-06-16 01:11:58', '2026-06-15 23:11:58');
 
 -- --------------------------------------------------------
 
@@ -474,13 +452,6 @@ CREATE TABLE `results` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `results`
---
-
-INSERT INTO `results` (`id`, `school_id`, `student_id`, `class_id`, `subject_id`, `term_id`, `ca1`, `ca2`, `exam`, `grade`, `remark`, `status`, `teacher_comment`, `admin_comment`, `next_term_begins`, `teacher_signature_url`, `admin_signature_url`, `school_stamp_url`, `published_at`, `created_at`, `updated_at`) VALUES
-(4, 1, 1, 1, 1, 1, 18.00, 17.00, 55.00, 'F9', 'Fail', 'published', 'Good performance', 'Well done! Keep up the good work.', '2025-01-15', NULL, NULL, NULL, '2026-06-15 22:49:23', '2026-06-15 22:48:05', '2026-06-15 22:49:23');
-
 -- --------------------------------------------------------
 
 --
@@ -495,13 +466,6 @@ CREATE TABLE `result_templates` (
   `is_active` tinyint(1) DEFAULT 1,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `result_templates`
---
-
-INSERT INTO `result_templates` (`id`, `school_id`, `name`, `components`, `is_active`, `created_at`) VALUES
-(1, 1, 'Junior Secondary Format', '[{\"name\":\"CA1\",\"max_score\":20,\"percentage\":20},{\"name\":\"CA2\",\"max_score\":20,\"percentage\":20},{\"name\":\"Exam\",\"max_score\":60,\"percentage\":60}]', 1, '2026-06-15 22:18:56');
 
 -- --------------------------------------------------------
 
@@ -536,7 +500,7 @@ CREATE TABLE `schools` (
 --
 
 INSERT INTO `schools` (`id`, `name`, `slug`, `email`, `logo_url`, `admin_signature_url`, `school_stamp_url`, `welcome_text`, `phone`, `address`, `primary_color`, `status`, `plan`, `wallet_balance`, `about`, `motto`, `founded_year`, `created_at`, `updated_at`) VALUES
-(1, 'Test Academy', 'test-academy', 'test@academy.com', NULL, NULL, NULL, NULL, NULL, NULL, '#7c3aed', 'active', 'pro', 9900.00, NULL, NULL, NULL, '2026-06-14 23:17:49', '2026-06-15 23:25:22');
+(3, 'Tender Minds School', 'tender-minds-school', 'babafemiolawuni@gmail.com', NULL, NULL, NULL, NULL, NULL, NULL, '#7c3aed', 'active', 'starter', 0.00, NULL, NULL, NULL, '2026-06-19 01:15:10', '2026-06-19 01:15:10');
 
 -- --------------------------------------------------------
 
@@ -579,6 +543,7 @@ CREATE TABLE `students` (
   `school_id` int(11) NOT NULL,
   `class_id` int(11) DEFAULT NULL,
   `first_name` varchar(100) NOT NULL,
+  `surname` varchar(100) DEFAULT NULL,
   `last_name` varchar(100) NOT NULL,
   `admission_number` varchar(100) NOT NULL,
   `date_of_birth` date DEFAULT NULL,
@@ -593,9 +558,9 @@ CREATE TABLE `students` (
 -- Dumping data for table `students`
 --
 
-INSERT INTO `students` (`id`, `school_id`, `class_id`, `first_name`, `last_name`, `admission_number`, `date_of_birth`, `sex`, `photo_url`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 'Updated Chidi', 'Updated Okonkwo Updated Emmanuel', 'GF/2024/001', '2010-05-15', 'Male', NULL, 1, '2026-06-15 21:36:32', '2026-06-15 22:47:51'),
-(2, 1, 1, 'Temp', 'Delete Me', 'TEMP1781559545763', NULL, 'Male', NULL, 0, '2026-06-15 21:39:05', '2026-06-15 22:47:51');
+INSERT INTO `students` (`id`, `school_id`, `class_id`, `first_name`, `surname`, `last_name`, `admission_number`, `date_of_birth`, `sex`, `photo_url`, `is_active`, `created_at`, `updated_at`) VALUES
+(8, 3, 20, 'John', 'Alice', 'Kotoja', 'TMC/012/028', '2026-06-02', 'Female', 'http://localhost/exclusivegrade/backend/uploads/gallery/tender-minds-school_1781831803.png', 1, '2026-06-19 01:16:43', '2026-06-19 01:35:53'),
+(9, 3, 18, 'ettet', 'test', 'ttwtw', 'ttwwtwt', '2026-06-24', 'Male', 'http://localhost/exclusivegrade/backend/uploads/gallery/tender-minds-school_1781831905.png', 1, '2026-06-19 01:18:25', '2026-06-19 01:35:45');
 
 -- --------------------------------------------------------
 
@@ -606,6 +571,7 @@ INSERT INTO `students` (`id`, `school_id`, `class_id`, `first_name`, `last_name`
 CREATE TABLE `subjects` (
   `id` int(11) NOT NULL,
   `school_id` int(11) NOT NULL,
+  `class_id` int(11) NOT NULL,
   `name` varchar(150) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -614,11 +580,15 @@ CREATE TABLE `subjects` (
 -- Dumping data for table `subjects`
 --
 
-INSERT INTO `subjects` (`id`, `school_id`, `name`, `created_at`) VALUES
-(1, 1, 'Mathematics', '2026-06-15 22:02:34'),
-(2, 1, 'English Language', '2026-06-15 22:03:07'),
-(3, 1, 'English', '2026-06-15 22:09:33'),
-(4, 1, 'Basic Science', '2026-06-15 22:09:34');
+INSERT INTO `subjects` (`id`, `school_id`, `class_id`, `name`, `created_at`) VALUES
+(5, 3, 6, 'Letter Work', '2026-06-19 01:48:44'),
+(6, 3, 6, 'Mathematics', '2026-06-19 01:49:03'),
+(7, 3, 6, 'Civic Education', '2026-06-19 01:49:03'),
+(8, 3, 6, 'Basic Science', '2026-06-19 01:49:03'),
+(9, 3, 6, 'English Language', '2026-06-19 01:52:11'),
+(10, 3, 6, 'Social Studies', '2026-06-19 01:52:11'),
+(11, 3, 6, 'Basic Technology', '2026-06-19 01:52:11'),
+(15, 3, 20, 'Test Subject 085919', '2026-06-19 06:59:19');
 
 -- --------------------------------------------------------
 
@@ -633,13 +603,6 @@ CREATE TABLE `template_assignments` (
   `template_type` enum('result','cognitive') NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `template_assignments`
---
-
-INSERT INTO `template_assignments` (`id`, `class_id`, `template_id`, `template_type`, `created_at`) VALUES
-(1, 1, 1, 'result', '2026-06-15 22:22:33');
 
 -- --------------------------------------------------------
 
@@ -657,13 +620,6 @@ CREATE TABLE `terms` (
   `is_current` tinyint(1) DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `terms`
---
-
-INSERT INTO `terms` (`id`, `session_id`, `school_id`, `name`, `start_date`, `end_date`, `is_current`, `created_at`) VALUES
-(1, 1, 1, 'First Term', '2024-09-01', '2024-12-15', 1, '2026-06-15 22:28:11');
 
 -- --------------------------------------------------------
 
@@ -684,14 +640,6 @@ CREATE TABLE `transactions` (
   `status` enum('pending','success','failed') DEFAULT 'pending',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `transactions`
---
-
-INSERT INTO `transactions` (`id`, `school_id`, `type`, `amount`, `balance_before`, `balance_after`, `reference`, `gateway`, `description`, `status`, `created_at`) VALUES
-(1, 1, 'topup', 10000.00, 0.00, 10000.00, 'WALLET_1781565098_1', 'paystack', NULL, 'success', '2026-06-15 23:11:38'),
-(2, 1, 'pin_purchase', 100.00, 10100.00, 9900.00, 'PIN_1', NULL, NULL, 'success', '2026-06-15 23:11:58');
 
 -- --------------------------------------------------------
 
@@ -734,10 +682,8 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `school_id`, `role`, `first_name`, `last_name`, `email`, `username`, `password_hash`, `signature_url`, `is_active`, `created_at`, `last_login_at`) VALUES
-(1, NULL, 'super_admin', 'Super', 'Admin', 'admin@exclusivegrade.com', NULL, '$2y$12$olyxlN.EfL.hzKGZ9GFRW.XuqJ0CejC0boxwB1BCFDJLPn8gNSf6i', NULL, 1, '2026-06-14 23:07:45', NULL),
-(2, 1, 'school_admin', 'John', 'Doe', 'test@academy.com', NULL, '$2y$12$MDQBN.PP3Ixk7sAA4Lc..egkHkHOdvB5PSCob1vTOJy/8.DHm6332', NULL, 1, '2026-06-14 23:17:50', NULL),
-(3, 1, 'teacher', 'Jonathan', 'Smithson', 'john.smith@academy.com', 'test-academy_john.smith', '$2y$12$cNQkO75KIGzxOcwHOvbBCOowteBw28EapBZEX8wa.lPetiekGGfqy', NULL, 1, '2026-06-15 21:44:59', NULL),
-(4, 1, 'teacher', 'Temp', 'Teacher', 'test-academy_temp.teacher@test-academy.local', 'test-academy_temp.teacher', '$2y$12$mD4MdESXonrfDRoXL1ZaqOf7SNsvBQkfNvuMKc6T5tMOaqHr.D/E.', NULL, 0, '2026-06-15 21:45:39', NULL);
+(8, 3, 'school_admin', 'OLAWUNI', 'BABAFEMI DAVID', 'babafemiolawuni@gmail.com', NULL, '$2y$12$XN8tDwI.BD4JtmMGJP6NTeoQmqOYN.OvF7sc70vLLdRyj8iOumpHa', NULL, 1, '2026-06-19 01:15:11', NULL),
+(9, 3, 'teacher', 'OLAWUNI', 'BABAFEMI DAVID', 'teacher@example.com', 'tender-minds-school_olawuni.babafemidavid', '$2y$12$hZQAiLRFQEGNt2cD6RBoHev.UfQEYp1B/AJh88QfHIz8pdGBBsq4a', NULL, 1, '2026-06-19 01:19:59', NULL);
 
 --
 -- Indexes for dumped tables
@@ -960,7 +906,9 @@ ALTER TABLE `students`
 --
 ALTER TABLE `subjects`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `school_id` (`school_id`,`name`);
+  ADD UNIQUE KEY `school_id` (`school_id`,`name`),
+  ADD UNIQUE KEY `unique_subject` (`school_id`,`class_id`,`name`),
+  ADD KEY `idx_class_id` (`class_id`);
 
 --
 -- Indexes for table `template_assignments`
@@ -1034,7 +982,7 @@ ALTER TABLE `attendance`
 -- AUTO_INCREMENT for table `auth_tokens`
 --
 ALTER TABLE `auth_tokens`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
 
 --
 -- AUTO_INCREMENT for table `cbt_questions`
@@ -1052,13 +1000,13 @@ ALTER TABLE `cbt_results`
 -- AUTO_INCREMENT for table `classes`
 --
 ALTER TABLE `classes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
 
 --
 -- AUTO_INCREMENT for table `class_subjects`
 --
 ALTER TABLE `class_subjects`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `cognitive_assignments`
@@ -1142,7 +1090,7 @@ ALTER TABLE `result_templates`
 -- AUTO_INCREMENT for table `schools`
 --
 ALTER TABLE `schools`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `school_settings`
@@ -1160,13 +1108,13 @@ ALTER TABLE `scoring_components`
 -- AUTO_INCREMENT for table `students`
 --
 ALTER TABLE `students`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `subjects`
 --
 ALTER TABLE `subjects`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `template_assignments`
@@ -1196,7 +1144,7 @@ ALTER TABLE `usage_tracking`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- Constraints for dumped tables
