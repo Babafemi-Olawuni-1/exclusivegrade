@@ -1,6 +1,6 @@
 <?php
 // ============================================
-// STUDENTS API - CRUD OPERATIONS
+// STUDENTS API - FIXED NAME HANDLING
 // ============================================
 
 require_once __DIR__ . '/../../helpers/db.php';
@@ -17,7 +17,6 @@ $isAdmin = $user['role'] === 'school_admin';
 // GET - Fetch students
 // ============================================
 if ($method === 'GET') {
-    // Get single student
     if ($id) {
         $student = fetchOne(
             "SELECT s.*, c.name as class_name 
@@ -34,14 +33,13 @@ if ($method === 'GET') {
         success($student);
     }
     
-    // Get all students with pagination
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     $perPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 20;
     $offset = ($page - 1) * $perPage;
     $search = isset($_GET['search']) ? '%' . trim($_GET['search']) . '%' : null;
     $classId = isset($_GET['class_id']) ? (int)$_GET['class_id'] : null;
     
-    $where = "s.school_id = ? AND s.is_active = 1";
+    $where = "s.school_id = ?";
     $params = [$school['id']];
     
     if ($search) {
@@ -56,13 +54,9 @@ if ($method === 'GET') {
         $params[] = $classId;
     }
     
-    // Get total count
-    $total = fetchOne(
-        "SELECT COUNT(*) as total FROM students s WHERE $where",
-        $params
-    )['total'];
+    $total = fetchOne("SELECT COUNT(*) as total FROM students s WHERE $where", $params);
+    $totalCount = $total ? (int)$total['total'] : 0;
     
-    // Get students
     $students = fetchAll(
         "SELECT s.*, c.name as class_name 
          FROM students s 
@@ -73,24 +67,26 @@ if ($method === 'GET') {
         $params
     );
     
-    // Parse surname from last_name for frontend
+    // Parse surname from last_name for frontend (if not stored separately)
     foreach ($students as &$student) {
-        $nameParts = explode(' ', $student['last_name'], 2);
-        $student['surname'] = $nameParts[0] ?? '';
-        $student['other_name'] = $nameParts[1] ?? '';
+        // If surname column exists and is empty, try to extract from last_name
+        if (empty($student['surname']) && !empty($student['last_name'])) {
+            $nameParts = explode(' ', $student['last_name'], 2);
+            $student['surname'] = $nameParts[0] ?? '';
+        }
     }
     
     success([
         'items' => $students,
-        'total' => (int)$total,
+        'total' => $totalCount,
         'page' => $page,
         'per_page' => $perPage,
-        'last_page' => ceil($total / $perPage)
+        'last_page' => ceil($totalCount / $perPage)
     ]);
 }
 
 // ============================================
-// POST - Create student
+// POST - Create student (FIXED NAME HANDLING)
 // ============================================
 if ($method === 'POST') {
     if (!$isAdmin) {
@@ -112,10 +108,11 @@ if ($method === 'POST') {
     $currentCount = fetchOne(
         "SELECT COUNT(*) as count FROM students WHERE school_id = ? AND is_active = 1",
         [$school['id']]
-    )['count'];
+    );
+    $currentCount = $currentCount ? (int)$currentCount['count'] : 0;
     
     if ($currentCount >= $limits['students']) {
-        error("Student limit reached for {$school['plan']} plan. Maximum {$limits['students']} students. Please upgrade.", 403);
+        error("Student limit reached. Maximum {$limits['students']} students. Please upgrade.", 403);
     }
     
     // Check duplicate admission number
@@ -125,28 +122,28 @@ if ($method === 'POST') {
     );
     
     if ($existing) {
-        error('Admission number already exists for this school', 409);
+        error('Admission number already exists', 409);
     }
     
-    // Handle name fields
+    // Handle name fields - store exactly as provided, no concatenation
     $firstName = trim($data['first_name']);
     $surname = trim($data['surname'] ?? '');
     $otherName = trim($data['last_name'] ?? '');
-    $lastName = trim($surname . ($otherName ? ' ' . $otherName : ''));
-    if (empty($lastName)) {
-        $lastName = $firstName;
-    }
+    
+    // Store last_name as just the other name (not combined with surname)
+    // This prevents duplication
+    $lastName = $otherName;
     
     $classId = !empty($data['class_id']) ? (int)$data['class_id'] : null;
     $sex = trim($data['sex'] ?? '');
     $dob = !empty($data['date_of_birth']) ? $data['date_of_birth'] : null;
     $photoUrl = $data['photo_url'] ?? null;
     
-    // Insert student
+    // Insert student - store surname separately
     $newId = insert(
-        "INSERT INTO students (school_id, class_id, first_name, last_name, admission_number, date_of_birth, sex, photo_url, is_active) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
-        [$school['id'], $classId, $firstName, $lastName, $data['admission_number'], $dob, $sex, $photoUrl]
+        "INSERT INTO students (school_id, class_id, first_name, surname, last_name, admission_number, date_of_birth, sex, photo_url, is_active) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)",
+        [$school['id'], $classId, $firstName, $surname, $lastName, $data['admission_number'], $dob, $sex, $photoUrl]
     );
     
     // Get the created student
@@ -158,16 +155,11 @@ if ($method === 'POST') {
         [$newId]
     );
     
-    if ($student) {
-        $nameParts = explode(' ', $student['last_name'], 2);
-        $student['surname'] = $nameParts[0] ?? '';
-    }
-    
     success($student, 'Student created successfully', 201);
 }
 
 // ============================================
-// PUT - Update student
+// PUT - Update student (FIXED NAME HANDLING)
 // ============================================
 if ($method === 'PUT') {
     if (!$isAdmin) {
@@ -178,7 +170,6 @@ if ($method === 'PUT') {
         error('Student ID required', 400);
     }
     
-    // Check if student exists
     $student = fetchOne(
         "SELECT * FROM students WHERE id = ? AND school_id = ?",
         [$id, $school['id']]
@@ -191,18 +182,8 @@ if ($method === 'PUT') {
     $data = body();
     
     $firstName = trim($data['first_name'] ?? $student['first_name']);
-    
-    // Handle name fields
-    if (isset($data['surname'])) {
-        $surname = trim($data['surname'] ?? '');
-        $otherName = trim($data['last_name'] ?? '');
-        $lastName = trim($surname . ($otherName ? ' ' . $otherName : ''));
-        if (empty($lastName)) {
-            $lastName = $student['last_name'];
-        }
-    } else {
-        $lastName = trim($data['last_name'] ?? $student['last_name']);
-    }
+    $surname = trim($data['surname'] ?? $student['surname'] ?? '');
+    $lastName = trim($data['last_name'] ?? $student['last_name'] ?? '');
     
     $classId = isset($data['class_id']) ? (!empty($data['class_id']) ? (int)$data['class_id'] : null) : $student['class_id'];
     $sex = isset($data['sex']) ? trim($data['sex']) : ($student['sex'] ?? '');
@@ -210,13 +191,20 @@ if ($method === 'PUT') {
     $photoUrl = isset($data['photo_url']) ? $data['photo_url'] : $student['photo_url'];
     $isActive = isset($data['is_active']) ? (int)$data['is_active'] : $student['is_active'];
     
-    // Update student
     query(
-        "UPDATE students SET first_name = ?, last_name = ?, class_id = ?, date_of_birth = ?, sex = ?, photo_url = ?, is_active = ? WHERE id = ?",
-        [$firstName, $lastName, $classId, $dob, $sex, $photoUrl, $isActive, $id]
+        "UPDATE students SET 
+            first_name = ?, 
+            surname = ?,
+            last_name = ?, 
+            class_id = ?, 
+            date_of_birth = ?, 
+            sex = ?, 
+            photo_url = ?, 
+            is_active = ? 
+         WHERE id = ?",
+        [$firstName, $surname, $lastName, $classId, $dob, $sex, $photoUrl, $isActive, $id]
     );
     
-    // Get updated student
     $updated = fetchOne(
         "SELECT s.*, c.name as class_name 
          FROM students s 
@@ -224,11 +212,6 @@ if ($method === 'PUT') {
          WHERE s.id = ?",
         [$id]
     );
-    
-    if ($updated) {
-        $nameParts = explode(' ', $updated['last_name'], 2);
-        $updated['surname'] = $nameParts[0] ?? '';
-    }
     
     success($updated, 'Student updated successfully');
 }
@@ -245,7 +228,6 @@ if ($method === 'DELETE') {
         error('Student ID required', 400);
     }
     
-    // Check if student exists
     $student = fetchOne(
         "SELECT id FROM students WHERE id = ? AND school_id = ?",
         [$id, $school['id']]
@@ -255,7 +237,6 @@ if ($method === 'DELETE') {
         error('Student not found', 404);
     }
     
-    // Soft delete - set is_active to 0
     query("UPDATE students SET is_active = 0 WHERE id = ?", [$id]);
     
     success(null, 'Student deactivated successfully');

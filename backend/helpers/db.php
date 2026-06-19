@@ -1,9 +1,5 @@
 <?php
-// ============================================
-// DATABASE HELPER FUNCTIONS
-// ============================================
-
-require_once __DIR__ . '/../../config.php';
+require_once __DIR__ . '/../config.php';
 
 function db() {
     static $pdo = null;
@@ -20,6 +16,7 @@ function db() {
                 ]
             );
         } catch (PDOException $e) {
+            error_log('Database connection failed: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Database connection failed']);
             exit;
@@ -45,7 +42,8 @@ function fetchAll($sql, $params = []) {
 }
 
 function insert($sql, $params = []) {
-    query($sql, $params);
+    $stmt = db()->prepare($sql);
+    $stmt->execute($params);
     return db()->lastInsertId();
 }
 

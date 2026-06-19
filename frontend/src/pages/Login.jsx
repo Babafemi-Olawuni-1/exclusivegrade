@@ -1,147 +1,175 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { Mail, Lock, ArrowRight, Eye, EyeOff, User, GraduationCap } from 'lucide-react'
 import { useApi } from '../hooks/useApi'
-import Logo from '../components/common/Logo'
-import Button from '../components/forms/Button'
-import Input from '../components/forms/Input'
-import Alert from '../components/common/Alert'
+import { useAuth } from '../context/AuthContext'
+import Navbar from '../components/layout/Navbar'
+import Footer from '../components/layout/Footer'
 
 export default function Login() {
-  const navigate = useNavigate()
-  const { login } = useAuth()
-  const { post, loading } = useApi()
-
-  const [tab, setTab] = useState('admin')     // 'admin' | 'teacher'
-  const [showPwd, setShowPwd] = useState(false)
+  const [loginType, setLoginType] = useState('email')
+  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
-  const [adminForm, setAdminForm] = useState({ email: '', password: '' })
-  const [teacherForm, setTeacherForm] = useState({ username: '', password: '' })
+  const navigate = useNavigate()
+  const { post } = useApi()
+  const { login } = useAuth()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
+
     try {
-      const payload = tab === 'admin'
-        ? { login_type: 'email',    email:    adminForm.email,    password: adminForm.password }
-        : { login_type: 'username', username: teacherForm.username, password: teacherForm.password }
-
-      // res is the inner data: { token, user, school }
-      const res = await post('/auth/login', payload)
-
-      if (res?.token) {
-        login({ token: res.token, user: res.user, school: res.school })
-        const role = res.user?.role
-        if (role === 'super_admin')                             navigate('/super')
-        else if (role === 'school_admin' || role === 'admin')  navigate('/admin')
-        else                                                    navigate('/teacher')
+      let payload
+      if (loginType === 'teacher') {
+        if (!username) throw new Error('Username is required')
+        payload = { username: username.trim(), password, login_type: 'username' }
       } else {
-        setError('Login failed. Please check your credentials.')
+        if (!email) throw new Error('Email is required')
+        payload = { email: email.trim(), password, login_type: 'email' }
+      }
+
+      const response = await post('/auth/login', payload)
+      
+      // Response structure: { success: true, message: "", data: { token, user, school } }
+      if (!response.success) {
+        throw new Error(response.message || 'Login failed')
+      }
+
+      // Pass response.data (the actual data) to login
+      login(response.data)
+
+      const userData = response.data.user
+      if (userData.role === 'super_admin') {
+        navigate('/super')
+      } else if (userData.role === 'teacher') {
+        navigate('/teacher')
+      } else {
+        navigate('/admin')
       }
     } catch (err) {
-      setError(err.message || 'Login failed.')
+      setError(err.message || 'Login failed. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] font-sora flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-[#E5E5E5] px-4 h-16 flex items-center">
-        <Link to="/"><Logo size="sm" /></Link>
-      </header>
-
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-[#0B1120] flex flex-col">
+      <Navbar />
+      
+      <div className="flex-1 flex items-center justify-center px-4 py-28 md:py-32">
         <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl shadow-card-lg p-8">
-            {/* Heading */}
-            <h1 className="text-2xl font-bold text-[#1A1A1A] mb-1">Welcome back</h1>
-            <p className="text-sm text-gray-500 mb-6">Sign in to your ExclusiveGrades account</p>
-
-            {/* Tabs */}
-            <div className="flex bg-[#F5F5F5] rounded-xl p-1 mb-6">
-              {[['admin','School Admin'],['teacher','Teacher']].map(([k,l]) => (
-                <button
-                  key={k}
-                  onClick={() => { setTab(k); setError('') }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${tab === k ? 'bg-white text-[#FF6B00] shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-
-            {error && <Alert type="error" message={error} onClose={() => setError('')} className="mb-5" />}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {tab === 'admin' ? (
-                <Input
-                  label="Email Address"
-                  type="email"
-                  placeholder="admin@school.com"
-                  icon={Mail}
-                  value={adminForm.email}
-                  onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })}
-                  required
-                  autoComplete="email"
-                />
-              ) : (
-                <Input
-                  label="Username"
-                  type="text"
-                  placeholder="teacher_username"
-                  icon={User}
-                  value={teacherForm.username}
-                  onChange={(e) => setTeacherForm({ ...teacherForm, username: e.target.value })}
-                  required
-                  autoComplete="username"
-                />
-              )}
-
-              <div className="relative">
-                <Input
-                  label="Password"
-                  type={showPwd ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  icon={Lock}
-                  value={tab === 'admin' ? adminForm.password : teacherForm.password}
-                  onChange={(e) =>
-                    tab === 'admin'
-                      ? setAdminForm({ ...adminForm, password: e.target.value })
-                      : setTeacherForm({ ...teacherForm, password: e.target.value })
-                  }
-                  required
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPwd(!showPwd)}
-                  className="absolute right-3 bottom-2.5 text-gray-400 hover:text-gray-600"
-                >
-                  {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-
-              <Button type="submit" loading={loading} fullWidth size="lg">
-                Sign In <ArrowRight className="w-4 h-4" />
-              </Button>
-            </form>
-
-            <p className="text-center text-sm text-gray-500 mt-6">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-[#FF6B00] font-semibold hover:underline">Register here</Link>
-            </p>
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold text-white">Welcome Back</h1>
+            <p className="text-gray-400 mt-2">Log in to your ExclusiveGrades account</p>
           </div>
 
-          {/* Demo hint */}
-          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-800">
-            <p className="font-semibold mb-1">Test credentials</p>
-            <p>School Admin — Email: <strong>test@academy.com</strong> · Password: <strong>password123</strong></p>
-            <p className="mt-1">Super Admin — Email: <strong>admin@exclusivegrade.com</strong> · Password: <strong>password</strong></p>
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8">
+            {error && (
+              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 text-red-300 rounded-xl text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-2 bg-white/5 rounded-xl p-1 mb-6">
+              <button
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
+                  loginType === 'email' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'
+                }`}
+                onClick={() => setLoginType('email')}
+              >
+                <Mail size={16} /> School Admin
+              </button>
+              <button
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2 ${
+                  loginType === 'teacher' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'
+                }`}
+                onClick={() => setLoginType('teacher')}
+              >
+                <GraduationCap size={16} /> Teacher
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              {loginType === 'teacher' ? (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                      placeholder="e.g. schoolname_john.doe"
+                      required
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                      placeholder="you@school.com"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-12 pr-12 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors duration-200"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold py-3.5 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/30"
+              >
+                {loading ? 'Logging in...' : <>Log In <ArrowRight size={18} /></>}
+              </button>
+            </form>
+
+            <p className="text-center text-sm text-gray-400 mt-6">
+              Don't have an account?{' '}
+              <Link to="/register" className="text-purple-400 hover:text-purple-300 font-medium transition-colors duration-200">
+                Register your school
+              </Link>
+            </p>
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   )
 }

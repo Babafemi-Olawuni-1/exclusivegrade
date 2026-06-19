@@ -1,8 +1,4 @@
 <?php
-// ============================================
-// API RESPONSE HELPER FUNCTIONS
-// ============================================
-
 function success($data = null, $message = 'Success', $code = 200) {
     http_response_code($code);
     echo json_encode([

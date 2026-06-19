@@ -1,121 +1,242 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { School, Mail, Lock, User, Eye, EyeOff, ArrowRight, Check } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { Building2, Mail, Lock, Phone, ArrowRight, User, Eye, EyeOff } from 'lucide-react'
 import { useApi } from '../hooks/useApi'
-import Logo from '../components/common/Logo'
-import Button from '../components/forms/Button'
-import Input from '../components/forms/Input'
-import Alert from '../components/common/Alert'
+import { useAuth } from '../context/AuthContext'
+import Navbar from '../components/layout/Navbar'
+import Footer from '../components/layout/Footer'
 
 export default function Register() {
-  const navigate = useNavigate()
-  const { login } = useAuth()
-  const { post, loading } = useApi()
-
-  const [showPwd, setShowPwd] = useState(false)
-  const [error, setError] = useState('')
   const [form, setForm] = useState({
-    name: '', email: '', password: '', admin_first_name: '', admin_last_name: '',
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    phone: '',
+    admin_first_name: '',
+    admin_last_name: ''
   })
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const navigate = useNavigate()
+  const { post } = useApi()
+  const { login } = useAuth()
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value })
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return }
+
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
+    setLoading(true)
 
     try {
-      // res is the inner data: { token, user, school }
-      const res = await post('/auth/register', form)
-      if (res?.token) {
-        login({ token: res.token, user: res.user, school: res.school })
+      const payload = {
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        phone: form.phone,
+        admin_first_name: form.admin_first_name || 'Admin',
+        admin_last_name: form.admin_last_name || 'User'
+      }
+
+      const res = await post('/auth/register', payload)
+      
+      // Check if registration was successful
+      if (res && res.success) {
+        login(res.data)
         navigate('/admin')
       } else {
-        setError('Registration failed.')
+        setError(res?.message || 'Registration failed. Please try again.')
       }
     } catch (err) {
-      setError(err.message || 'Registration failed.')
+      // Extract meaningful error message
+      let errorMessage = err.message || 'Registration failed. Please try again.'
+      
+      // Check for specific error messages
+      if (errorMessage.includes('409') || errorMessage.includes('Conflict')) {
+        errorMessage = 'A school with this email already exists. Please use a different email or login.'
+      } else if (errorMessage.includes('422')) {
+        errorMessage = 'Please check your information and try again.'
+      } else if (errorMessage.includes('500')) {
+        errorMessage = 'Server error. Please try again later.'
+      }
+      
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] font-sora flex flex-col">
-      <header className="bg-white border-b border-[#E5E5E5] px-4 h-16 flex items-center">
-        <Link to="/"><Logo size="sm" /></Link>
-      </header>
-
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-[#0B1120] flex flex-col">
+      <Navbar />
+      
+      <div className="flex-1 flex items-center justify-center px-4 py-28 md:py-32">
         <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl shadow-card-lg p-8">
-            <h1 className="text-2xl font-bold text-[#1A1A1A] mb-1">Register Your School</h1>
-            <p className="text-sm text-gray-500 mb-6">Get started free — no credit card required</p>
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold text-white">Register Your School</h1>
+            <p className="text-gray-400 mt-2">Get started in minutes. No credit card required.</p>
+          </div>
 
-            {/* Free plan perks */}
-            <div className="bg-[#F5F5F5] rounded-xl p-4 mb-6">
-              <p className="text-xs font-semibold text-gray-600 mb-2">Free plan includes:</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {['10 students','2 teachers','Result management','PIN access'].map((f) => (
-                  <div key={f} className="flex items-center gap-1.5 text-xs text-gray-600">
-                    <Check className="w-3.5 h-3.5 text-[#FF6B00]" /> {f}
-                  </div>
-                ))}
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8">
+            {error && (
+              <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 text-red-300 rounded-xl text-sm">
+                {error}
               </div>
-            </div>
-
-            {error && <Alert type="error" message={error} onClose={() => setError('')} className="mb-5" />}
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                label="School Name" type="text" placeholder="Excellent Academy" icon={School}
-                value={form.name} onChange={set('name')} required
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="First Name" type="text" placeholder="John" icon={User}
-                  value={form.admin_first_name} onChange={set('admin_first_name')} required
-                />
-                <Input
-                  label="Last Name" type="text" placeholder="Doe"
-                  value={form.admin_last_name} onChange={set('admin_last_name')} required
-                />
-              </div>
-              <Input
-                label="Email Address" type="email" placeholder="admin@school.com" icon={Mail}
-                value={form.email} onChange={set('email')} required autoComplete="email"
-              />
-              <div className="relative">
-                <Input
-                  label="Password" type={showPwd ? 'text' : 'password'} placeholder="Min. 6 characters" icon={Lock}
-                  value={form.password} onChange={set('password')} required autoComplete="new-password"
-                />
-                <button
-                  type="button" onClick={() => setShowPwd(!showPwd)}
-                  className="absolute right-3 bottom-2.5 text-gray-400 hover:text-gray-600"
-                >
-                  {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">School Name</label>
+                <div className="relative">
+                  <Building2 className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
+                  <input
+                    type="text"
+                    name="name"
+                    value={form.name}
+                    onChange={handleChange}
+                    className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                    placeholder="e.g. Sunshine Academy"
+                    required
+                  />
+                </div>
               </div>
 
-              <p className="text-xs text-gray-500">
-                By registering, you agree to our{' '}
-                <a href="#" className="text-[#FF6B00] hover:underline">Terms of Service</a> and{' '}
-                <a href="#" className="text-[#FF6B00] hover:underline">Privacy Policy</a>.
-              </p>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">School Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
+                  <input
+                    type="email"
+                    name="email"
+                    value={form.email}
+                    onChange={handleChange}
+                    className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                    placeholder="info@school.com"
+                    required
+                  />
+                </div>
+              </div>
 
-              <Button type="submit" loading={loading} fullWidth size="lg">
-                Create Account <ArrowRight className="w-4 h-4" />
-              </Button>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Phone Number</label>
+                <div className="relative">
+                  <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={form.phone}
+                    onChange={handleChange}
+                    className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                    placeholder="080 1234 5678"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Admin First Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={16} />
+                    <input
+                      type="text"
+                      name="admin_first_name"
+                      value={form.admin_first_name}
+                      onChange={handleChange}
+                      className="w-full pl-9 pr-3 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 text-sm"
+                      placeholder="First name"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Admin Last Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={16} />
+                    <input
+                      type="text"
+                      name="admin_last_name"
+                      value={form.admin_last_name}
+                      onChange={handleChange}
+                      className="w-full pl-9 pr-3 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 text-sm"
+                      placeholder="Last name"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    value={form.password}
+                    onChange={handleChange}
+                    className="w-full pl-12 pr-12 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                    placeholder="Minimum 6 characters"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors duration-200"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Confirm Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" size={18} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="confirmPassword"
+                    value={form.confirmPassword}
+                    onChange={handleChange}
+                    className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                    placeholder="Confirm your password"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold py-3.5 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/30"
+              >
+                {loading ? 'Creating your school...' : <>Create School <ArrowRight size={18} /></>}
+              </button>
             </form>
 
-            <p className="text-center text-sm text-gray-500 mt-6">
+            <p className="text-center text-sm text-gray-400 mt-6">
               Already have an account?{' '}
-              <Link to="/login" className="text-[#FF6B00] font-semibold hover:underline">Sign in</Link>
+              <Link to="/login" className="text-purple-400 hover:text-purple-300 font-medium transition-colors duration-200">
+                Log in
+              </Link>
             </p>
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   )
 }

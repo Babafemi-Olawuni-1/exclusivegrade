@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,46 +10,52 @@
   box-sizing: border-box;
 }
 
+body {
+  font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #0B1120;
+  color: #FFFFFF;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 html {
   scroll-behavior: smooth;
 }
 
-body {
-  font-family: 'Sora', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  color: #1A1A1A;
-  background-color: #ffffff;
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0B1120;
+}
+::-webkit-scrollbar-thumb {
+  background: #8B5CF6;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #7C3AED;
+}
+/* Add this to your existing index.css */
+
+.perspective-1000 {
+  perspective: 1000px;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #F5F5F5; }
-::-webkit-scrollbar-thumb { background: #E5E5E5; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #ccc; }
-
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(20px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes modalEnter {
-  from { opacity: 0; transform: scale(0.95); }
-  to   { opacity: 1; transform: scale(1); }
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.transform-style-3d {
+  transform-style: preserve-3d;
 }
 
-.fade-in     { animation: fadeIn 0.3s ease-out; }
-.slide-in    { animation: slideInRight 0.3s ease-out; }
-.modal-enter { animation: modalEnter 0.25s ease-out; }
-.spinner     { animation: spin 1s linear infinite; }
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
 
-@media print {
-  .no-print { display: none !important; }
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Smooth scroll for the page */
+html {
+  scroll-behavior: smooth;
 }

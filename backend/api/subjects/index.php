@@ -22,18 +22,8 @@ if ($method === 'GET') {
     
     // If class_id is provided, get subjects for that class
     if ($classId) {
-        // Verify class belongs to school
-        $class = fetchOne(
-            "SELECT id FROM classes WHERE id = ? AND school_id = ?",
-            [$classId, $school['id']]
-        );
-        
-        if (!$class) {
-            error('Class not found', 404);
-        }
-        
         $subjects = fetchAll(
-            "SELECT s.*, cs.id as class_subject_id, cs.teacher_id, 
+            "SELECT s.*, cs.id as class_subject_id, cs.teacher_id,
                     CONCAT(u.first_name, ' ', u.last_name) as teacher_name
              FROM subjects s
              LEFT JOIN class_subjects cs ON cs.subject_id = s.id AND cs.class_id = ?
