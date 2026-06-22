@@ -30,9 +30,7 @@ export default function Teachers() {
     setLoading(true)
     try {
       const res = await get('/teachers')
-      if (res.success) {
-        setTeachers(res.data?.items || [])
-      }
+      setTeachers(res?.data?.items || [])
     } catch (error) {
       console.error('Failed to fetch teachers:', error)
     } finally {
@@ -43,12 +41,10 @@ export default function Teachers() {
   const handleSearch = async () => {
     setLoading(true)
     try {
-      let url = '/teachers'
-      if (search) url += `?search=${encodeURIComponent(search)}`
-      const res = await get(url)
-      if (res.success) {
-        setTeachers(res.data?.items || [])
-      }
+      const params = {}
+      if (search) params.search = search
+      const res = await get('/teachers', params)
+      setTeachers(res?.data?.items || [])
     } catch (error) {
       console.error('Search failed:', error)
     } finally {
@@ -116,25 +112,16 @@ export default function Teachers() {
         res = await post('/teachers', payload)
       }
 
-      if (res.success) {
-        setSuccess(res.message || 'Teacher saved successfully')
-        if (!editId && res.data) {
-          setCredentials({
-            username: res.data.username || '',
-            password: res.data.default_password || ''
-          })
-          setViewTeacher(res.data)
-          setModal('view-credentials')
-        }
-        setTimeout(() => {
-          if (!editId && !credentials) {
-            setModal(null)
-          }
-          fetchData()
-        }, 500)
-      } else {
-        setError(res.message || 'Failed to save teacher')
+      setSuccess('Teacher saved successfully')
+      if (!editId && res?.data) {
+        setCredentials({
+          username: res.data.username || '',
+          password: res.data.default_password || ''
+        })
+        setViewTeacher(res.data)
+        setModal('view-credentials')
       }
+      setTimeout(() => { fetchData() }, 500)
     } catch (err) {
       setError(err.message || 'An error occurred')
     } finally {
@@ -143,35 +130,23 @@ export default function Teachers() {
   }
 
   const handleDeactivate = async (id) => {
-    if (!confirm('Are you sure you want to deactivate this teacher?')) return
+    if (!confirm('Deactivate this teacher?')) return
     try {
-      const res = await del(`/teachers?id=${id}`)
-      if (res.success) {
-        await fetchData()
-        setSuccess('Teacher deactivated successfully')
-        setTimeout(() => setSuccess(''), 3000)
-      } else {
-        alert(res.message || 'Failed to deactivate teacher')
-      }
-    } catch (err) {
-      alert('An error occurred')
-    }
+      await del(`/teachers?id=${id}`)
+      await fetchData()
+      setSuccess('Teacher deactivated')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) { alert(err.message) }
   }
 
   const handleActivate = async (id) => {
-    if (!confirm('Are you sure you want to activate this teacher?')) return
+    if (!confirm('Activate this teacher?')) return
     try {
-      const res = await put(`/teachers?id=${id}`, { is_active: 1 })
-      if (res.success) {
-        await fetchData()
-        setSuccess('Teacher activated successfully')
-        setTimeout(() => setSuccess(''), 3000)
-      } else {
-        alert(res.message || 'Failed to activate teacher')
-      }
-    } catch (err) {
-      alert('An error occurred')
-    }
+      await put(`/teachers?id=${id}`, { is_active: 1 })
+      await fetchData()
+      setSuccess('Teacher activated')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) { alert(err.message) }
   }
 
   const handleCopy = (text) => {

@@ -1,188 +1,228 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Plus, Edit2, Trash2, Link2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, Edit2, Trash2, Link2, X } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import Modal from '../../components/common/Modal'
-import Button from '../../components/forms/Button'
-import Input from '../../components/forms/Input'
-import Select from '../../components/forms/Select'
-import Alert from '../../components/common/Alert'
-import LoadingSpinner from '../../components/common/LoadingSpinner'
+import AdminLayout from '../../components/layout/AdminLayout'
 
 export default function ResultTemplates() {
-  const { get, post, put, del, loading } = useApi()
+  const { get, post, put, del } = useApi()
   const [templates, setTemplates] = useState([])
   const [classes, setClasses] = useState([])
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [deleteModal, setDeleteModal] = useState(false)
-  const [assignModal, setAssignModal] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState(null)
   const [editing, setEditing] = useState(null)
   const [target, setTarget] = useState(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [assignForm, setAssignForm] = useState({ template_id:'', class_id:'' })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [assignForm, setAssignForm] = useState({ template_id: '', class_id: '' })
   const [form, setForm] = useState({
     name: '',
-    components: [{ name: 'CA', max_score: 40, percentage: 40 }, { name: 'Exam', max_score: 60, percentage: 60 }],
+    components: [{ name: 'CA1', max_score: 20 }, { name: 'CA2', max_score: 20 }, { name: 'Exam', max_score: 60 }],
   })
 
-  const fetch = useCallback(async () => {
+  const fetch = async () => {
+    setLoading(true)
     try {
-      const [tr, cr] = await Promise.all([get('/result-templates'), get('/classes')])
-      setTemplates(tr.templates || [])
-      setClasses(cr.classes || [])
-    } catch { setError('Failed to load templates.') }
-  }, [])
+      const [tr, cr] = await Promise.allSettled([get('/result-templates'), get('/classes')])
+      if (tr.value?.success) setTemplates(tr.value.data || [])
+      if (cr.value?.success) setClasses(cr.value.data || [])
+    } catch(e) { console.error(e) }
+    finally { setLoading(false) }
+  }
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => { fetch() }, [])
 
   const openAdd = () => {
-    setForm({ name:'', components:[{name:'CA',max_score:40,percentage:40},{name:'Exam',max_score:60,percentage:60}] })
+    setForm({ name:'', components:[{name:'CA1',max_score:20},{name:'CA2',max_score:20},{name:'Exam',max_score:60}] })
     setEditing(null)
-    setModalOpen(true)
+    setModal('form')
   }
+
   const openEdit = (t) => {
     setForm({ name: t.name, components: t.components || [] })
     setEditing(t.id)
-    setModalOpen(true)
+    setModal('form')
   }
 
-  const addComponent = () => setForm({ ...form, components: [...form.components, { name:'', max_score:0, percentage:0 }] })
+  const addComponent = () => setForm({ ...form, components: [...form.components, { name: '', max_score: 0 }] })
   const removeComponent = (i) => setForm({ ...form, components: form.components.filter((_,idx) => idx !== i) })
-  const updateComponent = (i, key, val) => {
-    const comps = [...form.components]
-    comps[i] = { ...comps[i], [key]: val }
-    setForm({ ...form, components: comps })
+  const updateComp = (i, key, val) => {
+    const c = [...form.components]; c[i] = { ...c[i], [key]: val }; setForm({ ...form, components: c })
   }
 
-  const handleSubmit = async (e) => {
+  const handleSave = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
+    setSaving(true)
     setError('')
     try {
-      if (editing) await put(`/result-templates?id=${editing}`, form)
-      else         await post('/result-templates', form)
-      setSuccess(editing ? 'Template updated.' : 'Template created.')
-      setModalOpen(false)
-      fetch()
-    } catch (err) { setError(err.message) }
-    finally { setSubmitting(false) }
+      let res
+      if (editing) res = await put(`/result-templates?id=${editing}`, form)
+      else         res = await post('/result-templates', form)
+      if (res.success) { setSuccess(editing ? 'Template updated.' : 'Template created.'); setModal(null); fetch() }
+      else setError(res.message || 'Failed')
+    } catch(err) { setError(err.message) }
+    finally { setSaving(false) }
   }
 
   const handleDelete = async () => {
-    setSubmitting(true)
+    setSaving(true)
     try {
-      await del(`/result-templates?id=${target.id}`)
-      setSuccess('Template deleted.')
-      setDeleteModal(false)
-      fetch()
-    } catch (err) { setError(err.message) }
-    finally { setSubmitting(false) }
+      const res = await del(`/result-templates?id=${target.id}`)
+      if (res.success) { setSuccess('Deleted.'); setModal(null); fetch() }
+      else setError(res.message || 'Failed')
+    } catch(err) { setError(err.message) }
+    finally { setSaving(false) }
   }
 
   const handleAssign = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
+    setSaving(true)
     try {
-      await post('/result-templates?action=assign', assignForm)
-      setSuccess('Template assigned to class.')
-      setAssignModal(false)
-    } catch (err) { setError(err.message) }
-    finally { setSubmitting(false) }
+      const res = await post('/result-templates?action=assign', assignForm)
+      if (res.success) { setSuccess('Template assigned to class.'); setModal(null) }
+      else setError(res.message || 'Failed')
+    } catch(err) { setError(err.message) }
+    finally { setSaving(false) }
   }
 
-  const totalPercent = form.components.reduce((sum, c) => sum + Number(c.percentage || 0), 0)
+  const totalScore = form.components.reduce((s, c) => s + Number(c.max_score || 0), 0)
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-[#1A1A1A]">Result Templates</h1>
-          <p className="text-sm text-gray-500">Configure scoring components (CA, Exam, etc.)</p>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Result Templates</h1>
+            <p className="text-gray-500 text-sm">Configure scoring components (CA, Exam, etc.)</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setModal('assign')} className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm flex items-center gap-2"><Link2 size={16}/> Assign to Class</button>
+            <button onClick={openAdd} className="px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 text-sm flex items-center gap-2"><Plus size={16}/> New Template</button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setAssignModal(true)}><Link2 className="w-4 h-4" /> Assign to Class</Button>
-          <Button size="sm" onClick={openAdd}><Plus className="w-4 h-4" /> New Template</Button>
-        </div>
+
+        {success && <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm">{success}</div>}
+        {error   && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>}
+
+        {loading ? (
+          <div className="grid sm:grid-cols-2 gap-4">{[...Array(4)].map((_,i)=><div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse"/>)}</div>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-4">
+            {templates.length === 0 ? (
+              <div className="col-span-full bg-white border border-gray-200 rounded-2xl p-12 text-center text-gray-400">No templates yet. Create your first result template.</div>
+            ) : templates.map(t => (
+              <div key={t.id} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="font-bold text-gray-800">{t.name}</h3>
+                  <div className="flex gap-1">
+                    <button onClick={() => openEdit(t)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 size={15}/></button>
+                    <button onClick={() => { setTarget(t); setModal('delete') }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={15}/></button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {t.components?.map((c, i) => (
+                    <div key={i} className="flex justify-between text-sm bg-gray-50 rounded-lg px-3 py-2">
+                      <span className="font-medium text-gray-700">{c.name}</span>
+                      <span className="text-gray-500">Max: {c.max_score}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 text-xs text-gray-400">Total: {t.components?.reduce((s,c)=>s+Number(c.max_score||0),0)} marks</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {error   && <Alert type="error"   message={error}   onClose={() => setError('')} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
-
-      {loading ? (
-        <div className="flex justify-center py-16"><LoadingSpinner /></div>
-      ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {templates.length === 0 ? (
-            <div className="col-span-full bg-white rounded-2xl shadow-card p-16 text-center text-gray-400">
-              <p className="font-medium">No templates yet. Create your first result template.</p>
+      {/* Form Modal */}
+      {modal === 'form' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800">{editing ? 'Edit Template' : 'Create Template'}</h2>
+              <button onClick={() => setModal(null)}><X size={24} className="text-gray-400"/></button>
             </div>
-          ) : templates.map(t => (
-            <div key={t.id} className="bg-white rounded-2xl shadow-card p-5">
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="font-bold">{t.name}</h3>
-                <div className="flex gap-1">
-                  <button onClick={() => openEdit(t)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600"><Edit2 className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => { setTarget(t); setDeleteModal(true) }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+            {error && <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>}
+            <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Template Name <span className="text-red-500">*</span></label>
+                <input required type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="e.g. Standard Template" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-700">Components</label>
+                  <button type="button" onClick={addComponent} className="text-xs text-purple-600 hover:text-purple-700 font-medium">+ Add Component</button>
                 </div>
+                <div className="space-y-2">
+                  {form.components.map((c, i) => (
+                    <div key={i} className="grid grid-cols-5 gap-2 items-center">
+                      <input className="col-span-2 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="Name (e.g. CA)" value={c.name} onChange={e => updateComp(i,'name',e.target.value)} />
+                      <input type="number" className="col-span-2 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="Max Score" value={c.max_score} onChange={e => updateComp(i,'max_score',e.target.value)} />
+                      <button type="button" onClick={() => removeComponent(i)} className="py-2 text-red-500 hover:bg-red-50 rounded-xl text-sm">✕</button>
+                    </div>
+                  ))}
+                </div>
+                <p className={`text-xs mt-1.5 ${totalScore === 100 ? 'text-green-600' : 'text-amber-600'}`}>Total: {totalScore} marks (should equal 100)</p>
               </div>
-              <div className="space-y-2">
-                {t.components?.map((c,i) => (
-                  <div key={i} className="flex justify-between text-sm bg-[#F5F5F5] rounded-lg px-3 py-2">
-                    <span className="font-medium">{c.name}</span>
-                    <span className="text-gray-500">Max: {c.max_score} · {c.percentage}%</span>
-                  </div>
-                ))}
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button type="submit" disabled={saving} className="flex-1 py-2 bg-purple-600 text-white rounded-xl text-sm hover:bg-purple-700 disabled:opacity-50">{saving ? 'Saving...' : (editing ? 'Update' : 'Create')}</button>
               </div>
-            </div>
-          ))}
+            </form>
+          </div>
         </div>
       )}
 
-      {/* Create/Edit Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Edit Template' : 'Create Template'} size="lg"
-        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button><Button form="template-form" type="submit" loading={submitting}>{editing ? 'Update' : 'Create'}</Button></div>}
-      >
-        <form id="template-form" onSubmit={handleSubmit} className="space-y-5">
-          <Input label="Template Name" required value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="e.g. Standard Template" />
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-[#333333]">Scoring Components</label>
-              <Button type="button" size="xs" variant="ghost" onClick={addComponent}><Plus className="w-3 h-3" /> Add</Button>
+      {/* Assign Modal */}
+      {modal === 'assign' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Assign Template to Class</h2>
+              <button onClick={() => setModal(null)}><X size={24} className="text-gray-400"/></button>
             </div>
-            <div className="space-y-2">
-              {form.components.map((c,i) => (
-                <div key={i} className="grid grid-cols-4 gap-2 items-end">
-                  <Input placeholder="Name (e.g. CA)" value={c.name} onChange={e => updateComponent(i,'name',e.target.value)} />
-                  <Input type="number" placeholder="Max Score" value={c.max_score} onChange={e => updateComponent(i,'max_score',Number(e.target.value))} />
-                  <Input type="number" placeholder="%" value={c.percentage} onChange={e => updateComponent(i,'percentage',Number(e.target.value))} />
-                  <button type="button" onClick={() => removeComponent(i)} className="mb-1 p-2 rounded-lg hover:bg-red-50 text-red-500 text-sm">✕</button>
-                </div>
-              ))}
-            </div>
-            {totalPercent !== 100 && (
-              <p className="text-xs text-amber-600 mt-2">Percentages total: {totalPercent}% (should be 100%)</p>
-            )}
+            {error && <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>}
+            <form onSubmit={handleAssign} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Template <span className="text-red-500">*</span></label>
+                <select required value={assignForm.template_id} onChange={e => setAssignForm({...assignForm, template_id: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                  <option value="">-- Select Template --</option>
+                  {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Class <span className="text-red-500">*</span></label>
+                <select required value={assignForm.class_id} onChange={e => setAssignForm({...assignForm, class_id: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                  <option value="">-- Select Class --</option>
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button type="submit" disabled={saving} className="flex-1 py-2 bg-purple-600 text-white rounded-xl text-sm hover:bg-purple-700 disabled:opacity-50">{saving ? 'Assigning...' : 'Assign'}</button>
+              </div>
+            </form>
           </div>
-        </form>
-      </Modal>
+        </div>
+      )}
 
       {/* Delete Modal */}
-      <Modal isOpen={deleteModal} onClose={() => setDeleteModal(false)} title="Delete Template" size="sm"
-        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setDeleteModal(false)}>Cancel</Button><Button variant="danger" loading={submitting} onClick={handleDelete}>Delete</Button></div>}
-      >
-        <p className="text-sm text-gray-600">Delete template <strong>{target?.name}</strong>?</p>
-      </Modal>
-
-      {/* Assign Modal */}
-      <Modal isOpen={assignModal} onClose={() => setAssignModal(false)} title="Assign Template to Class" size="sm"
-        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setAssignModal(false)}>Cancel</Button><Button loading={submitting} form="assign-form" type="submit">Assign</Button></div>}
-      >
-        <form id="assign-form" onSubmit={handleAssign} className="space-y-4">
-          <Select label="Template" required options={templates.map(t => ({ value: t.id, label: t.name }))} value={assignForm.template_id} onChange={e => setAssignForm({...assignForm, template_id: e.target.value})} />
-          <Select label="Class" required options={classes.map(c => ({ value: c.id, label: c.name }))} value={assignForm.class_id} onChange={e => setAssignForm({...assignForm, class_id: e.target.value})} />
-        </form>
-      </Modal>
-    </div>
+      {modal === 'delete' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-3">Delete Template</h2>
+            <p className="text-gray-600 text-sm mb-5">Delete <strong>{target?.name}</strong>?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setModal(null)} className="flex-1 py-2 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleDelete} disabled={saving} className="flex-1 py-2 bg-red-600 text-white rounded-xl text-sm hover:bg-red-700 disabled:opacity-50">{saving ? 'Deleting...' : 'Delete'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
   )
 }

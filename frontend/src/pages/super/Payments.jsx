@@ -1,86 +1,80 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { CheckCircle, XCircle } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import Button from '../../components/forms/Button'
-import Alert from '../../components/common/Alert'
-import Badge from '../../components/common/Badge'
-import LoadingSpinner from '../../components/common/LoadingSpinner'
-import { formatCurrency, formatDate } from '../../utils/helpers'
+import AdminLayout from '../../components/layout/AdminLayout'
 
-export default function Payments() {
-  const { get, post, loading } = useApi()
+export default function SuperPayments() {
+  const { get, post } = useApi()
   const [payments, setPayments] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [submitting, setSubmitting] = useState(null)
 
-  const fetch = useCallback(async () => {
+  const fetch = async () => {
+    setLoading(true)
     try {
       const res = await get('/super?action=payments')
-      setPayments(res.payments || [])
-    } catch { setError('Failed to load payments.') }
-  }, [])
+      if (res.success) setPayments(res.data || [])
+    } catch(e) { console.error(e) }
+    finally { setLoading(false) }
+  }
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => { fetch() }, [])
 
   const handleAction = async (paymentId, action) => {
     setSubmitting(paymentId)
     setError('')
     try {
-      await post(`/super?action=${action}-payment`, { payment_id: paymentId })
-      setSuccess(`Payment ${action}d successfully.`)
-      fetch()
-    } catch (err) { setError(err.message) }
+      const res = await post(`/super?action=${action}-payment`, { payment_id: paymentId })
+      if (res.success) { setSuccess(`Payment ${action}d.`); fetch() }
+      else setError(res.message || 'Failed')
+    } catch(err) { setError(err.message) }
     finally { setSubmitting(null) }
   }
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-[#1A1A1A]">Payment Requests</h1>
-        <p className="text-sm text-gray-500">Review and approve manual payment requests</p>
-      </div>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Payment Requests</h1>
+          <p className="text-gray-500 text-sm">Review and approve manual payment requests</p>
+        </div>
 
-      {error   && <Alert type="error"   message={error}   onClose={() => setError('')} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
+        {success && <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm">{success}</div>}
+        {error   && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>}
 
-      <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-        {loading ? (
-          <div className="flex justify-center py-16"><LoadingSpinner /></div>
-        ) : payments.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No pending payments.</p>
-          </div>
-        ) : (
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-[#F5F5F5] border-b border-[#E5E5E5]">
-                <tr>{['School','Amount','Date','Screenshot','Status','Actions'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr>
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>{['School','Amount','Date','Screenshot','Status','Actions'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">{h}</th>)}</tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E5E5]">
-                {payments.map(p => (
-                  <tr key={p.id} className="hover:bg-[#F5F5F5] transition-colors">
-                    <td className="px-4 py-3 font-medium">{p.school_name}</td>
-                    <td className="px-4 py-3 font-bold text-[#FF6B00]">{formatCurrency(p.amount)}</td>
-                    <td className="px-4 py-3 text-gray-600">{formatDate(p.created_at)}</td>
+              <tbody className="divide-y divide-gray-100">
+                {loading ? [...Array(3)].map((_,i)=><tr key={i}><td colSpan="6"><div className="h-4 bg-gray-100 rounded animate-pulse m-4"/></td></tr>)
+                : payments.length === 0 ? <tr><td colSpan="6" className="py-10 text-center text-gray-400">No pending payments.</td></tr>
+                : payments.map(p => (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-800">{p.school_name}</td>
+                    <td className="px-4 py-3 font-bold text-purple-700">₦{parseFloat(p.amount).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-gray-500">{new Date(p.created_at).toLocaleDateString()}</td>
                     <td className="px-4 py-3">
-                      {p.screenshot_url ? (
-                        <a href={p.screenshot_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">View</a>
-                      ) : '—'}
+                      {p.screenshot_url ? <a href={p.screenshot_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-xs">View</a> : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant={p.status==='pending'?'warning':p.status==='approved'?'success':'error'}>{p.status}</Badge>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.status==='pending'?'bg-yellow-100 text-yellow-700':p.status==='approved'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}`}>{p.status}</span>
                     </td>
                     <td className="px-4 py-3">
                       {p.status === 'pending' && (
                         <div className="flex gap-2">
-                          <Button size="xs" variant="success" loading={submitting===p.id} onClick={() => handleAction(p.id,'approve')}>
-                            <CheckCircle className="w-3 h-3" /> Approve
-                          </Button>
-                          <Button size="xs" variant="danger" loading={submitting===p.id} onClick={() => handleAction(p.id,'reject')}>
-                            <XCircle className="w-3 h-3" /> Reject
-                          </Button>
+                          <button onClick={() => handleAction(p.id,'approve')} disabled={submitting===p.id}
+                            className="px-2.5 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 disabled:opacity-50 flex items-center gap-1">
+                            <CheckCircle size={12}/> Approve
+                          </button>
+                          <button onClick={() => handleAction(p.id,'reject')} disabled={submitting===p.id}
+                            className="px-2.5 py-1.5 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700 disabled:opacity-50 flex items-center gap-1">
+                            <XCircle size={12}/> Reject
+                          </button>
                         </div>
                       )}
                     </td>
@@ -89,8 +83,8 @@ export default function Payments() {
               </tbody>
             </table>
           </div>
-        )}
+        </div>
       </div>
-    </div>
+    </AdminLayout>
   )
 }

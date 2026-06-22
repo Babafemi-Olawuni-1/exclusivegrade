@@ -1,21 +1,8 @@
-# Remove any existing CORS headers first
-Header unset Access-Control-Allow-Origin
-Header unset Access-Control-Allow-Methods
-Header unset Access-Control-Allow-Headers
-Header unset Access-Control-Allow-Credentials
-
-# Set CORS headers - ONLY ONCE
-Header always set Access-Control-Allow-Origin "http://localhost:3000"
-Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
-Header always set Access-Control-Allow-Credentials "true"
-
-# Handle preflight requests
+Options -Indexes
 RewriteEngine On
-RewriteCond %{REQUEST_METHOD} OPTIONS
-RewriteRule ^(.*)$ $1 [R=200,L]
+RewriteBase /exclusivegrade/backend/api/
 
-# Route API requests
+# Route all requests through index.php — CORS is handled in PHP
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^api/(.*)$ api/index.php?route=$1 [QSA,L]
+RewriteRule ^(.+)$ index.php?route=$1 [QSA,L]

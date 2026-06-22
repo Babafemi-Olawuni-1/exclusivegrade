@@ -1,13 +1,17 @@
 import axios from 'axios'
 import { API_URL } from '../config'
 
+// Ensure baseURL ends with / so axios appends relative URLs correctly
+// e.g. baseURL='/api/' + url='classes' = '/api/classes' (hits Vite proxy)
+const baseURL = API_URL.endsWith('/') ? API_URL : API_URL + '/'
+
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL,
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
 })
 
-// Attach token
+// Attach token on every request
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('gg_token')
@@ -17,16 +21,11 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response: backend always returns { success, message, data }
-// We pass response.data straight through — pages read res.data.xxx
+// Normalize errors; auto-logout on 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const msg =
-      error.response?.data?.message ||
-      error.message ||
-      'Request failed'
-
+    const msg = error.response?.data?.message || error.message || 'Request failed'
     if (error.response?.status === 401) {
       localStorage.removeItem('gg_token')
       localStorage.removeItem('gg_user')

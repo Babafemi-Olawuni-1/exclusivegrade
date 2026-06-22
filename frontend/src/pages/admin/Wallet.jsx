@@ -1,144 +1,184 @@
 import { useState, useEffect } from 'react'
-import { Wallet as WalletIcon, Plus, Upload, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
+import { Wallet as WalletIcon, Plus, ArrowUpRight, ArrowDownLeft, X } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import Modal from '../../components/common/Modal'
-import Button from '../../components/forms/Button'
-import Input from '../../components/forms/Input'
-import Alert from '../../components/common/Alert'
-import Badge from '../../components/common/Badge'
-import LoadingSpinner from '../../components/common/LoadingSpinner'
-import { formatCurrency, formatDate } from '../../utils/helpers'
+import AdminLayout from '../../components/layout/AdminLayout'
 
 export default function Wallet() {
-  const { get, post, loading } = useApi()
+  const { get, post } = useApi()
   const [walletData, setWalletData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState(null)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [fundModal, setFundModal] = useState(false)
-  const [manualModal, setManualModal] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
   const [fundForm, setFundForm] = useState({ amount: '' })
   const [manualForm, setManualForm] = useState({ amount: '', screenshot_url: '' })
 
-  useEffect(() => {
-    get('/wallet').then(r => setWalletData(r)).catch(() => setError('Failed to load wallet.'))
-  }, [])
+  const fetch = async () => {
+    setLoading(true)
+    try {
+      const res = await get('/wallet')
+      setWalletData(res?.data || null)
+    } catch(e) { console.error(e) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { fetch() }, [])
 
   const handleFund = async (e) => {
-    e.preventDefault()
-    setSubmitting(true)
+    e.preventDefault(); setSaving(true); setError('')
     try {
       const res = await post('/wallet?action=fund', fundForm)
-      if (res.payment_url) {
-        window.open(res.payment_url, '_blank')
-      }
-      setSuccess('Redirecting to payment...')
-      setFundModal(false)
-    } catch (err) { setError(err.message) }
-    finally { setSubmitting(false) }
+      if (res?.data?.payment_url) window.open(res.data.payment_url, '_blank')
+      setSuccess('Redirecting to Paystack payment...'); setModal(null)
+    } catch(err) { setError(err.message) }
+    finally { setSaving(false) }
   }
 
   const handleManual = async (e) => {
-    e.preventDefault()
-    setSubmitting(true)
+    e.preventDefault(); setSaving(true); setError('')
     try {
       await post('/wallet?action=manual-request', manualForm)
       setSuccess('Manual payment request submitted. Admin will review and approve.')
-      setManualModal(false)
-    } catch (err) { setError(err.message) }
-    finally { setSubmitting(false) }
+      setModal(null)
+    } catch(err) { setError(err.message) }
+    finally { setSaving(false) }
   }
 
-  const typeIcon = (type) => type === 'credit'
-    ? <ArrowDownLeft className="w-4 h-4 text-green-600" />
-    : <ArrowUpRight className="w-4 h-4 text-red-500" />
+  const typeIcon = (type) => type === 'topup'
+    ? <ArrowDownLeft size={16} className="text-green-600"/>
+    : <ArrowUpRight size={16} className="text-red-500"/>
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-bold text-[#1A1A1A]">Wallet</h1>
+    <AdminLayout>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-800">Wallet</h1>
 
-      {error   && <Alert type="error"   message={error}   onClose={() => setError('')} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
+        {success && <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm">{success}</div>}
+        {error   && <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>}
 
-      {loading ? (
-        <div className="flex justify-center py-16"><LoadingSpinner /></div>
-      ) : (
-        <>
-          {/* Balance card */}
-          <div className="bg-gradient-to-r from-[#1A1A1A] to-[#333333] rounded-2xl p-6 text-white">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-gray-400 mb-1">Available Balance</p>
-                <p className="text-4xl font-bold">{formatCurrency(walletData?.balance || 0)}</p>
+        {loading ? (
+          <div className="h-32 bg-gray-100 rounded-2xl animate-pulse"/>
+        ) : (
+          <>
+            {/* Balance Card */}
+            <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg shadow-purple-500/20">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-purple-200 text-sm mb-1">Available Balance</p>
+                  <p className="text-4xl font-bold">₦{(walletData?.balance || 0).toLocaleString()}</p>
+                </div>
+                <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center">
+                  <WalletIcon size={28}/>
+                </div>
               </div>
-              <div className="w-14 h-14 rounded-2xl bg-[#FF6B00]/20 flex items-center justify-center">
-                <WalletIcon className="w-7 h-7 text-[#FF6B00]" />
+              <div className="flex gap-3 mt-5">
+                <button onClick={() => { setFundForm({amount:''}); setModal('fund') }}
+                  className="px-4 py-2 bg-white text-purple-700 rounded-xl text-sm font-semibold hover:bg-gray-50 flex items-center gap-2">
+                  <Plus size={16}/> Fund Wallet
+                </button>
+                <button onClick={() => { setManualForm({amount:'',screenshot_url:''}); setModal('manual') }}
+                  className="px-4 py-2 bg-white/20 text-white rounded-xl text-sm font-semibold hover:bg-white/30 border border-white/30">
+                  Manual Payment
+                </button>
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
-              <Button size="sm" onClick={() => setFundModal(true)}>
-                <Plus className="w-4 h-4" /> Fund Wallet
-              </Button>
-              <Button variant="ghost" size="sm" className="text-white border border-white/30 hover:bg-white/10" onClick={() => setManualModal(true)}>
-                <Upload className="w-4 h-4" /> Manual Payment
-              </Button>
-            </div>
-          </div>
 
-          {/* Transactions */}
-          <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#E5E5E5]">
-              <h2 className="font-semibold">Transaction History</h2>
-            </div>
-            {!walletData?.transactions?.length ? (
-              <p className="text-center py-12 text-gray-400 text-sm">No transactions yet.</p>
-            ) : (
-              <div className="divide-y divide-[#E5E5E5]">
-                {walletData.transactions.map(tx => (
-                  <div key={tx.id} className="px-5 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tx.type === 'credit' ? 'bg-green-100' : 'bg-red-100'}`}>
-                        {typeIcon(tx.type)}
+            {/* Transactions */}
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+              <div className="px-5 py-4 border-b border-gray-200">
+                <h2 className="font-semibold text-gray-800">Transaction History</h2>
+              </div>
+              {!walletData?.transactions?.length ? (
+                <p className="text-center py-12 text-gray-400 text-sm">No transactions yet.</p>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {walletData.transactions.map(tx => (
+                    <div key={tx.id} className="px-5 py-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tx.type === 'topup' ? 'bg-green-100' : 'bg-red-100'}`}>
+                          {typeIcon(tx.type)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">{tx.description || tx.type?.replace('_',' ')}</p>
+                          <p className="text-xs text-gray-400">{new Date(tx.created_at).toLocaleDateString()}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{tx.description || tx.type}</p>
-                        <p className="text-xs text-gray-500">{formatDate(tx.created_at)}</p>
+                      <div className="text-right">
+                        <p className={`font-bold text-sm ${tx.type === 'topup' ? 'text-green-600' : 'text-red-500'}`}>
+                          {tx.type === 'topup' ? '+' : '-'}₦{parseFloat(tx.amount).toLocaleString()}
+                        </p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${tx.status === 'success' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{tx.status}</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`font-bold text-sm ${tx.type === 'credit' ? 'text-green-600' : 'text-red-500'}`}>
-                        {tx.type === 'credit' ? '+' : '-'}{formatCurrency(tx.amount)}
-                      </p>
-                      <Badge variant={tx.status === 'success' ? 'success' : 'warning'} className="text-xs">{tx.status}</Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      )}
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Fund Modal */}
-      <Modal isOpen={fundModal} onClose={() => setFundModal(false)} title="Fund Wallet" size="sm"
-        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setFundModal(false)}>Cancel</Button><Button form="fund-form" type="submit" loading={submitting}>Proceed to Payment</Button></div>}
-      >
-        <form id="fund-form" onSubmit={handleFund} className="space-y-4">
-          <Input label="Amount (₦)" type="number" min="100" required value={fundForm.amount} onChange={e => setFundForm({amount: e.target.value})} placeholder="e.g. 5000" />
-          <Alert type="info" message="You will be redirected to Paystack to complete payment." />
-        </form>
-      </Modal>
+      {modal === 'fund' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Fund Wallet</h2>
+              <button onClick={() => setModal(null)}><X size={24} className="text-gray-400"/></button>
+            </div>
+            {error && <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>}
+            <form onSubmit={handleFund} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Amount (₦) <span className="text-red-500">*</span></label>
+                <input type="number" required min="1000" value={fundForm.amount} onChange={e => setFundForm({amount: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Minimum ₦1,000" />
+              </div>
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
+                You will be redirected to Paystack to complete payment securely.
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button type="submit" disabled={saving} className="flex-1 py-2 bg-purple-600 text-white rounded-xl text-sm hover:bg-purple-700 disabled:opacity-50">{saving ? 'Processing...' : 'Pay via Paystack'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Manual Payment Modal */}
-      <Modal isOpen={manualModal} onClose={() => setManualModal(false)} title="Request Manual Payment" size="sm"
-        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setManualModal(false)}>Cancel</Button><Button form="manual-form" type="submit" loading={submitting}>Submit Request</Button></div>}
-      >
-        <form id="manual-form" onSubmit={handleManual} className="space-y-4">
-          <Input label="Amount (₦)" type="number" min="100" required value={manualForm.amount} onChange={e => setManualForm({...manualForm, amount: e.target.value})} />
-          <Input label="Payment Screenshot URL" type="url" value={manualForm.screenshot_url} onChange={e => setManualForm({...manualForm, screenshot_url: e.target.value})} placeholder="https://..." />
-          <Alert type="info" message="Upload proof of payment. The super admin will review and approve your request." />
-        </form>
-      </Modal>
-    </div>
+      {modal === 'manual' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Manual Payment Request</h2>
+              <button onClick={() => setModal(null)}><X size={24} className="text-gray-400"/></button>
+            </div>
+            {error && <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>}
+            <form onSubmit={handleManual} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Amount (₦) <span className="text-red-500">*</span></label>
+                <input type="number" required min="1000" value={manualForm.amount} onChange={e => setManualForm({...manualForm, amount: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Payment Screenshot URL</label>
+                <input type="url" value={manualForm.screenshot_url} onChange={e => setManualForm({...manualForm, screenshot_url: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="https://..." />
+              </div>
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-xs text-yellow-700">
+                The super admin will review and approve your request within 24 hours.
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button type="submit" disabled={saving} className="flex-1 py-2 bg-purple-600 text-white rounded-xl text-sm hover:bg-purple-700 disabled:opacity-50">{saving ? 'Submitting...' : 'Submit Request'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
   )
 }

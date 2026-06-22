@@ -84,18 +84,14 @@ export default function Subjects() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const subjectsRes = await get('/subjects')
-      if (subjectsRes.success) {
-        setSubjects(subjectsRes.data || [])
-      }
-      const classesRes = await get('/classes')
-      if (classesRes.success) {
-        setClasses(classesRes.data || [])
-      }
-      const teachersRes = await get('/teachers')
-      if (teachersRes.success) {
-        setTeachers(teachersRes.data?.items || [])
-      }
+      const [subjectsRes, classesRes, teachersRes] = await Promise.allSettled([
+        get('/subjects'),
+        get('/classes'),
+        get('/teachers'),
+      ])
+      setSubjects(subjectsRes.value?.data || [])
+      setClasses(classesRes.value?.data || [])
+      setTeachers(teachersRes.value?.data?.items || [])
     } catch (error) {
       console.error('Failed to fetch data:', error)
     } finally {
@@ -107,15 +103,9 @@ export default function Subjects() {
     setLoading(true)
     try {
       const res = await get('/subjects')
-      if (res.success) {
-        let filtered = res.data || []
-        if (search) {
-          filtered = filtered.filter(s => 
-            s.name.toLowerCase().includes(search.toLowerCase())
-          )
-        }
-        setSubjects(filtered)
-      }
+      let filtered = res?.data || []
+      if (search) filtered = filtered.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
+      setSubjects(filtered)
     } catch (error) {
       console.error('Search failed:', error)
     } finally {
@@ -227,10 +217,8 @@ export default function Subjects() {
       let addedCount = 0
       for (const subj of newSubjects) {
         try {
-          const res = await post('/subjects', { name: subj.name, class_id: subj.class_id })
-          if (res.success) {
-            addedCount++
-          }
+          await post('/subjects', { name: subj.name, class_id: subj.class_id })
+          addedCount++
         } catch (e) {
           console.error('Failed to add subject:', e)
         }
@@ -255,115 +243,52 @@ export default function Subjects() {
   }
 
   const handleCopySubjects = async () => {
-    if (!sourceClassId || !destClassId) {
-      setError('Please select both source and destination classes.')
-      return
-    }
-
-    setCopying(true)
-    setError('')
-    setSuccess('')
-
+    if (!sourceClassId || !destClassId) { setError('Select both source and destination classes.'); return }
+    setCopying(true); setError(''); setSuccess('')
     try {
       const res = await post('/subjects?action=copy', {
         source_class_id: parseInt(sourceClassId),
         destination_class_id: parseInt(destClassId)
       })
-
-      if (res.success) {
-        setSuccess(`${res.data?.copied || 0} subject(s) copied successfully!`)
-        setTimeout(() => {
-          setModal(null)
-          setSuccess('')
-          fetchData()
-        }, 1500)
-      } else {
-        setError(res.message || 'Failed to copy subjects')
-      }
-    } catch (err) {
-      setError(err.message || 'An error occurred')
-    } finally {
-      setCopying(false)
-    }
+      setSuccess(`${res?.data?.copied || 0} subject(s) copied successfully!`)
+      setTimeout(() => { setModal(null); setSuccess(''); fetchData() }, 1500)
+    } catch (err) { setError(err.message) }
+    finally { setCopying(false) }
   }
 
   const handleAssignTeacher = async () => {
-    if (!assignClassId || !assignSubjectId) {
-      setError('Please select both class and subject.')
-      return
-    }
-
-    setSaving(true)
-    setError('')
-    setSuccess('')
-
+    if (!assignClassId || !assignSubjectId) { setError('Select both class and subject.'); return }
+    setSaving(true); setError(''); setSuccess('')
     try {
-      const res = await post('/subjects?action=assign-teacher', {
+      await post('/subjects?action=assign-teacher', {
         class_subject_id: parseInt(assignSubjectId),
         teacher_id: assignTeacherId ? parseInt(assignTeacherId) : null
       })
-
-      if (res.success) {
-        setSuccess('Teacher assigned successfully!')
-        setTimeout(() => {
-          setModal(null)
-          setSuccess('')
-          fetchData()
-        }, 1500)
-      } else {
-        setError(res.message || 'Failed to assign teacher')
-      }
-    } catch (err) {
-      setError(err.message || 'An error occurred')
-    } finally {
-      setSaving(false)
-    }
+      setSuccess('Teacher assigned!')
+      setTimeout(() => { setModal(null); setSuccess(''); fetchData() }, 1500)
+    } catch (err) { setError(err.message) }
+    finally { setSaving(false) }
   }
 
   const handleSingleSave = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    setError('')
-    setSuccess('')
-
+    e.preventDefault(); setSaving(true); setError(''); setSuccess('')
     try {
-      let res
-      if (editId) {
-        res = await put(`/subjects?id=${editId}`, { name: form.name.trim() })
-      } else {
-        res = await post('/subjects', { name: form.name.trim(), class_id: form.class_id || null })
-      }
-
-      if (res.success) {
-        setSuccess(res.message || 'Subject saved successfully')
-        setTimeout(() => {
-          setModal(null)
-          fetchData()
-        }, 500)
-      } else {
-        setError(res.message || 'Failed to save subject')
-      }
-    } catch (err) {
-      setError(err.message || 'An error occurred')
-    } finally {
-      setSaving(false)
-    }
+      if (editId) await put(`/subjects?id=${editId}`, { name: form.name.trim() })
+      else        await post('/subjects', { name: form.name.trim(), class_id: form.class_id || null })
+      setSuccess('Subject saved')
+      setTimeout(() => { setModal(null); fetchData() }, 500)
+    } catch (err) { setError(err.message) }
+    finally { setSaving(false) }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this subject? This will remove it from all classes.')) return
+    if (!confirm('Delete this subject?')) return
     try {
-      const res = await del(`/subjects?id=${id}`)
-      if (res.success) {
-        await fetchData()
-        setSuccess('Subject deleted successfully')
-        setTimeout(() => setSuccess(''), 3000)
-      } else {
-        alert(res.message || 'Failed to delete subject')
-      }
-    } catch (err) {
-      alert('An error occurred')
-    }
+      await del(`/subjects?id=${id}`)
+      await fetchData()
+      setSuccess('Subject deleted')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) { alert(err.message) }
   }
 
   const handleInputChange = (e) => {

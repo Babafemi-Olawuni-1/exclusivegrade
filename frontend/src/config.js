@@ -1,4 +1,7 @@
-// Frontend API Configuration - Use the router
-export const API_BASE_URL = 'http://localhost/exclusivegrade/backend/api/index.php?route='
+// Dev:  VITE_API_URL=/api  (proxied by Vite to XAMPP, no CORS)
+// Prod: VITE_API_URL=https://yourdomain.com/backend/api
+export const API_URL  = import.meta.env.VITE_API_URL  || '/api'
+export const APP_NAME = import.meta.env.VITE_APP_NAME || 'ExclusiveGrades'
+export const APP_ENV  = import.meta.env.VITE_APP_ENV  || 'development'
 
-export default { API_BASE_URL }
+export default { API_URL, APP_NAME, APP_ENV }

@@ -1,69 +1,66 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useCallback } from 'react'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('gg_user')
-      return saved ? JSON.parse(saved) : null
-    } catch {
-      return null
-    }
+    try { return JSON.parse(localStorage.getItem('gg_user')) } catch { return null }
   })
   const [school, setSchool] = useState(() => {
-    try {
-      const saved = localStorage.getItem('gg_school')
-      return saved ? JSON.parse(saved) : null
-    } catch {
-      return null
-    }
+    try { return JSON.parse(localStorage.getItem('gg_school')) } catch { return null }
   })
   const [token, setToken] = useState(() => localStorage.getItem('gg_token') || null)
 
-  const login = (data) => {
+  // data = { token, user, school }
+  const login = useCallback((data) => {
     if (!data) return
-
-    const tokenValue = data.token
-    const userValue = data.user
-    const schoolValue = data.school
-
-    if (tokenValue) {
-      localStorage.setItem('gg_token', tokenValue)
-      setToken(tokenValue)
+    if (data.token) {
+      localStorage.setItem('gg_token', data.token)
+      setToken(data.token)
     }
-
-    if (userValue) {
-      localStorage.setItem('gg_user', JSON.stringify(userValue))
-      setUser(userValue)
+    if (data.user) {
+      localStorage.setItem('gg_user', JSON.stringify(data.user))
+      setUser(data.user)
     }
-
-    if (schoolValue) {
-      localStorage.setItem('gg_school', JSON.stringify(schoolValue))
-      setSchool(schoolValue)
+    if (data.school) {
+      localStorage.setItem('gg_school', JSON.stringify(data.school))
+      setSchool(data.school)
     }
-  }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('gg_token')
     localStorage.removeItem('gg_user')
     localStorage.removeItem('gg_school')
     setToken(null)
     setUser(null)
     setSchool(null)
-  }
+  }, [])
+
+  const updateUser = useCallback((updates) => {
+    const updated = { ...user, ...updates }
+    localStorage.setItem('gg_user', JSON.stringify(updated))
+    setUser(updated)
+  }, [user])
+
+  const isAuthenticated = !!token
+  const isAdmin   = user?.role === 'school_admin' || user?.role === 'admin'
+  const isTeacher = user?.role === 'teacher'
+  const isSuper   = user?.role === 'super_admin'
 
   return (
-    <AuthContext.Provider value={{ user, school, token, login, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{
+      user, school, token,
+      login, logout, updateUser,
+      isAuthenticated, isAdmin, isTeacher, isSuper,
+    }}>
       {children}
     </AuthContext.Provider>
   )
 }
 
 export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
+  return ctx
 }

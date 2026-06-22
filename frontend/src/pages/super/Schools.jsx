@@ -1,98 +1,83 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Eye, CheckCircle, XCircle, TrendingUp } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Eye, TrendingUp, X } from 'lucide-react'
 import { useApi } from '../../hooks/useApi'
-import Modal from '../../components/common/Modal'
-import Button from '../../components/forms/Button'
-import Select from '../../components/forms/Select'
-import Alert from '../../components/common/Alert'
-import Badge from '../../components/common/Badge'
-import Pagination from '../../components/common/Pagination'
-import LoadingSpinner from '../../components/common/LoadingSpinner'
+import AdminLayout from '../../components/layout/AdminLayout'
 
-export default function Schools() {
-  const { get, put, loading } = useApi()
+export default function SuperSchools() {
+  const { get, put } = useApi()
   const [schools, setSchools] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState(null)
+  const [selected, setSelected] = useState(null)
+  const [editForm, setEditForm] = useState({ status: '', plan: '' })
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [viewModal, setViewModal] = useState(false)
-  const [editModal, setEditModal] = useState(false)
-  const [selected, setSelected] = useState(null)
-  const [editForm, setEditForm] = useState({ status:'', plan:'' })
-  const [submitting, setSubmitting] = useState(false)
 
-  const fetch = useCallback(async () => {
+  const fetch = async () => {
+    setLoading(true)
     try {
       const res = await get('/super?action=schools', { page, per_page: 20 })
-      setSchools(res.schools || [])
-      setTotal(res.total || 0)
-    } catch { setError('Failed to load schools.') }
-  }, [page])
-
-  useEffect(() => { fetch() }, [fetch])
-
-  const openEdit = (school) => {
-    setSelected(school)
-    setEditForm({ status: school.status, plan: school.plan })
-    setEditModal(true)
+      if (res.success) { setSchools(res.data?.schools || res.data || []); setTotal(res.data?.total || 0) }
+    } catch(e) { console.error(e) }
+    finally { setLoading(false) }
   }
+
+  useEffect(() => { fetch() }, [page])
 
   const handleEdit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
+    setSaving(true)
+    setError('')
     try {
-      await put(`/super?action=school&id=${selected.id}`, editForm)
-      setSuccess('School updated.')
-      setEditModal(false)
-      fetch()
-    } catch (err) { setError(err.message) }
-    finally { setSubmitting(false) }
+      const res = await put(`/super?action=school&id=${selected.id}`, editForm)
+      if (res.success) { setSuccess('School updated.'); setModal(null); fetch() }
+      else setError(res.message || 'Failed')
+    } catch(err) { setError(err.message) }
+    finally { setSaving(false) }
   }
 
-  const statusBadge = (status) => {
-    const map = { active:'success', suspended:'error', pending:'warning' }
-    return <Badge variant={map[status]||'gray'}>{status}</Badge>
+  const statusBadge = (s) => {
+    const map = { active:'bg-green-100 text-green-700', suspended:'bg-red-100 text-red-700', pending:'bg-yellow-100 text-yellow-700' }
+    return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${map[s]||map.active}`}>{s}</span>
   }
-
-  const planBadge = (plan) => {
-    const map = { starter:'gray', pro:'orange', enterprise:'info' }
-    return <Badge variant={map[plan]||'gray'}>{plan}</Badge>
+  const planBadge = (p) => {
+    const map = { starter:'bg-gray-100 text-gray-600', pro:'bg-purple-100 text-purple-700', enterprise:'bg-blue-100 text-blue-700' }
+    return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${map[p]||map.starter}`}>{p}</span>
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <AdminLayout>
+      <div className="space-y-6">
         <div>
-          <h1 className="text-xl font-bold text-[#1A1A1A]">Schools</h1>
-          <p className="text-sm text-gray-500">{total} registered schools</p>
+          <h1 className="text-2xl font-bold text-gray-800">Schools</h1>
+          <p className="text-gray-500 text-sm">{total} registered schools</p>
         </div>
-      </div>
 
-      {error   && <Alert type="error"   message={error}   onClose={() => setError('')} />}
-      {success && <Alert type="success" message={success} onClose={() => setSuccess('')} />}
+        {success && <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm">{success}</div>}
 
-      <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-        {loading ? (
-          <div className="flex justify-center py-16"><LoadingSpinner /></div>
-        ) : (
+        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-[#F5F5F5] border-b border-[#E5E5E5]">
-                <tr>{['School','Email','Plan','Status','Students','Actions'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>)}</tr>
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>{['School','Email','Plan','Status','Students','Actions'].map(h=><th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">{h}</th>)}</tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E5E5]">
-                {schools.map(s => (
-                  <tr key={s.id} className="hover:bg-[#F5F5F5] transition-colors">
-                    <td className="px-4 py-3 font-medium">{s.name}</td>
+              <tbody className="divide-y divide-gray-100">
+                {loading ? [...Array(5)].map((_,i)=><tr key={i}><td colSpan="6" className="px-4 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse"/></td></tr>)
+                : schools.length === 0 ? <tr><td colSpan="6" className="py-10 text-center text-gray-400">No schools found.</td></tr>
+                : schools.map(s => (
+                  <tr key={s.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-800">{s.name}</td>
                     <td className="px-4 py-3 text-gray-600">{s.email}</td>
                     <td className="px-4 py-3">{planBadge(s.plan)}</td>
                     <td className="px-4 py-3">{statusBadge(s.status)}</td>
                     <td className="px-4 py-3 text-gray-600">{s.student_count || 0}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
-                        <button onClick={() => { setSelected(s); setViewModal(true) }} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-600"><Eye className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg hover:bg-orange-50 text-[#FF6B00]"><TrendingUp className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => { setSelected(s); setModal('view') }} className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg"><Eye size={15}/></button>
+                        <button onClick={() => { setSelected(s); setEditForm({status:s.status, plan:s.plan}); setModal('edit') }} className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg"><TrendingUp size={15}/></button>
                       </div>
                     </td>
                   </tr>
@@ -100,33 +85,63 @@ export default function Schools() {
               </tbody>
             </table>
           </div>
-        )}
-        <Pagination currentPage={page} totalPages={Math.ceil(total/20)} onPageChange={setPage} totalItems={total} perPage={20} />
+        </div>
       </div>
 
       {/* View Modal */}
-      <Modal isOpen={viewModal} onClose={() => setViewModal(false)} title="School Details" size="lg">
-        {selected && (
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            {[['Name',selected.name],['Email',selected.email],['Plan',selected.plan],['Status',selected.status],['Students',selected.student_count||0],['Teachers',selected.teacher_count||0],['Slug',selected.slug],['Balance',selected.wallet_balance||0]].map(([k,v]) => (
-              <div key={k} className="bg-[#F5F5F5] rounded-xl p-3">
-                <p className="text-xs text-gray-500">{k}</p>
-                <p className="font-semibold mt-0.5">{v}</p>
-              </div>
-            ))}
+      {modal === 'view' && selected && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800">{selected.name}</h2>
+              <button onClick={() => setModal(null)}><X size={24} className="text-gray-400"/></button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              {[['Email',selected.email],['Plan',selected.plan],['Status',selected.status],['Students',selected.student_count||0],['Teachers',selected.teacher_count||0],['Balance',`₦${(selected.wallet_balance||0).toLocaleString()}`],['Slug',selected.slug],['Created',new Date(selected.created_at).toLocaleDateString()]].map(([k,v]) => (
+                <div key={k} className="bg-gray-50 rounded-xl p-3"><p className="text-xs text-gray-400">{k}</p><p className="font-semibold mt-0.5">{v}</p></div>
+              ))}
+            </div>
+            <button onClick={() => setModal(null)} className="w-full mt-4 py-2 bg-purple-600 text-white rounded-xl text-sm hover:bg-purple-700">Close</button>
           </div>
-        )}
-      </Modal>
+        </div>
+      )}
 
       {/* Edit Modal */}
-      <Modal isOpen={editModal} onClose={() => setEditModal(false)} title="Update School" size="sm"
-        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setEditModal(false)}>Cancel</Button><Button form="edit-school-form" type="submit" loading={submitting}>Update</Button></div>}
-      >
-        <form id="edit-school-form" onSubmit={handleEdit} className="space-y-4">
-          <Select label="Status" options={[{value:'active',label:'Active'},{value:'suspended',label:'Suspended'},{value:'pending',label:'Pending'}]} value={editForm.status} onChange={e=>setEditForm({...editForm,status:e.target.value})} placeholder={null} />
-          <Select label="Plan" options={[{value:'starter',label:'Starter (Free)'},{value:'pro',label:'Pro'},{value:'enterprise',label:'Enterprise'}]} value={editForm.plan} onChange={e=>setEditForm({...editForm,plan:e.target.value})} placeholder={null} />
-        </form>
-      </Modal>
-    </div>
+      {modal === 'edit' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Update {selected?.name}</h2>
+              <button onClick={() => setModal(null)}><X size={24} className="text-gray-400"/></button>
+            </div>
+            {error && <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{error}</div>}
+            <form onSubmit={handleEdit} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Status</label>
+                <select value={editForm.status} onChange={e => setEditForm({...editForm, status: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">Plan</label>
+                <select value={editForm.plan} onChange={e => setEditForm({...editForm, plan: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                  <option value="starter">Starter (Free)</option>
+                  <option value="pro">Pro</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setModal(null)} className="flex-1 py-2 border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button type="submit" disabled={saving} className="flex-1 py-2 bg-purple-600 text-white rounded-xl text-sm hover:bg-purple-700 disabled:opacity-50">{saving ? 'Updating...' : 'Update'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
   )
 }

@@ -56,9 +56,7 @@ export default function Classes() {
     setLoading(true)
     try {
       const res = await get('/classes')
-      if (res.success) {
-        setClasses(res.data || [])
-      }
+      setClasses(res?.data || [])
     } catch (error) {
       console.error('Failed to fetch classes:', error)
     } finally {
@@ -70,16 +68,14 @@ export default function Classes() {
     setLoading(true)
     try {
       const res = await get('/classes')
-      if (res.success) {
-        let filtered = res.data || []
-        if (search) {
-          filtered = filtered.filter(c => 
-            c.name.toLowerCase().includes(search.toLowerCase()) ||
-            (c.description && c.description.toLowerCase().includes(search.toLowerCase()))
-          )
-        }
-        setClasses(filtered)
+      let filtered = res?.data || []
+      if (search) {
+        filtered = filtered.filter(c =>
+          c.name.toLowerCase().includes(search.toLowerCase()) ||
+          (c.description && c.description.toLowerCase().includes(search.toLowerCase()))
+        )
       }
+      setClasses(filtered)
     } catch (error) {
       console.error('Search failed:', error)
     } finally {
@@ -156,12 +152,8 @@ export default function Classes() {
 
       for (const cls of newClasses) {
         try {
-          const res = await post('/classes', cls)
-          if (res.success) {
-            addedCount++
-          } else {
-            errorCount++
-          }
+          await post('/classes', cls)
+          addedCount++
         } catch (e) {
           errorCount++
         }
@@ -204,15 +196,8 @@ export default function Classes() {
         res = await post('/classes', payload)
       }
 
-      if (res.success) {
-        setSuccess(res.message || 'Class saved successfully')
-        setTimeout(() => {
-          setModal(null)
-          fetchData()
-        }, 500)
-      } else {
-        setError(res.message || 'Failed to save class')
-      }
+      setSuccess('Class saved successfully')
+      setTimeout(() => { setModal(null); fetchData() }, 500)
     } catch (err) {
       setError(err.message || 'An error occurred')
     } finally {
@@ -221,19 +206,13 @@ export default function Classes() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this class? This will remove all students assigned to it.')) return
+    if (!confirm('Delete this class?')) return
     try {
-      const res = await del(`/classes?id=${id}`)
-      if (res.success) {
-        await fetchData()
-        setSuccess('Class deleted successfully')
-        setTimeout(() => setSuccess(''), 3000)
-      } else {
-        alert(res.message || 'Failed to delete class')
-      }
-    } catch (err) {
-      alert('An error occurred')
-    }
+      await del(`/classes?id=${id}`)
+      await fetchData()
+      setSuccess('Class deleted')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) { alert(err.message) }
   }
 
   const toggleClassSelection = (className) => {

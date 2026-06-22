@@ -44,13 +44,9 @@ export default function Students() {
     setLoading(true)
     try {
       const studentsRes = await get('/students')
-      if (studentsRes.success) {
-        setStudents(studentsRes.data?.items || [])
-      }
+      setStudents(studentsRes?.data?.items || [])
       const classesRes = await get('/classes')
-      if (classesRes.success) {
-        setClasses(classesRes.data || [])
-      }
+      setClasses(classesRes?.data || [])
     } catch (error) {
       console.error('Failed to fetch data:', error)
     } finally {
@@ -61,23 +57,17 @@ export default function Students() {
   const handleSearch = async () => {
     setLoading(true)
     try {
-      let url = '/students'
-      const params = new URLSearchParams()
-      if (search) params.append('search', search)
-      if (classFilter) params.append('class_id', classFilter)
-      if (params.toString()) url += '?' + params.toString()
-      
-      const res = await get(url)
-      if (res.success) {
-        setStudents(res.data?.items || [])
-      }
+      const params = {}
+      if (search) params.search = search
+      if (classFilter) params.class_id = classFilter
+      const res = await get('/students', params)
+      setStudents(res?.data?.items || [])
     } catch (error) {
       console.error('Search failed:', error)
     } finally {
       setLoading(false)
     }
   }
-
   useEffect(() => {
     const timer = setTimeout(() => {
       handleSearch()
@@ -145,18 +135,18 @@ export default function Students() {
 
     try {
       const token = localStorage.getItem('gg_token')
-      const response = await fetch('http://localhost/exclusivegrade/backend/api/index.php?route=school/upload', {
+      const response = await fetch('/api/school/upload', {
         method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + token
-        },
+        headers: { 'Authorization': 'Bearer ' + token },
         body: formData
       })
       const data = await response.json()
       if (!data.success) throw new Error(data.message || 'Photo upload failed')
-      return data.data.url
+      return data.data?.url || null
     } catch (err) {
-      throw new Error(err.message || 'Upload failed')
+      // Photo upload failed — continue without photo
+      console.warn('Photo upload failed:', err.message)
+      return null
     } finally {
       setUploadingPhoto(false)
     }
@@ -193,15 +183,8 @@ export default function Students() {
         res = await post('/students', payload)
       }
 
-      if (res.success) {
-        setSuccess(res.message || 'Student saved successfully')
-        setTimeout(() => {
-          setModal(null)
-          fetchData()
-        }, 500)
-      } else {
-        setError(res.message || 'Failed to save student')
-      }
+      setSuccess('Student saved successfully')
+      setTimeout(() => { setModal(null); fetchData() }, 500)
     } catch (err) {
       setError(err.message || 'An error occurred')
     } finally {
@@ -210,35 +193,23 @@ export default function Students() {
   }
 
   const handleDeactivate = async (id) => {
-    if (!confirm('Are you sure you want to deactivate this student?')) return
+    if (!confirm('Deactivate this student?')) return
     try {
-      const res = await del(`/students?id=${id}`)
-      if (res.success) {
-        await fetchData()
-        setSuccess('Student deactivated successfully')
-        setTimeout(() => setSuccess(''), 3000)
-      } else {
-        alert(res.message || 'Failed to deactivate student')
-      }
-    } catch (err) {
-      alert('An error occurred')
-    }
+      await del(`/students?id=${id}`)
+      await fetchData()
+      setSuccess('Student deactivated')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) { alert(err.message) }
   }
 
   const handleActivate = async (id) => {
-    if (!confirm('Are you sure you want to activate this student?')) return
+    if (!confirm('Activate this student?')) return
     try {
-      const res = await put(`/students?id=${id}`, { is_active: 1 })
-      if (res.success) {
-        await fetchData()
-        setSuccess('Student activated successfully')
-        setTimeout(() => setSuccess(''), 3000)
-      } else {
-        alert(res.message || 'Failed to activate student')
-      }
-    } catch (err) {
-      alert('An error occurred')
-    }
+      await put(`/students?id=${id}`, { is_active: 1 })
+      await fetchData()
+      setSuccess('Student activated')
+      setTimeout(() => setSuccess(''), 3000)
+    } catch (err) { alert(err.message) }
   }
 
   const handleCsvImport = async () => {
@@ -255,11 +226,10 @@ export default function Students() {
       formData.append('csv', csvFile)
 
       const token = localStorage.getItem('gg_token')
-      const response = await fetch('http://localhost/exclusivegrade/backend/api/index.php?route=students/import', {
+      // Use proxy path with route param
+      const response = await fetch('/api/students/import', {
         method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + token
-        },
+        headers: { 'Authorization': 'Bearer ' + token },
         body: formData
       })
 

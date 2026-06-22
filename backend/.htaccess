@@ -1,15 +1,8 @@
-# Enable CORS - ONLY ONE SOURCE
-Header set Access-Control-Allow-Origin "http://localhost:3000"
-Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-Header set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
-Header set Access-Control-Allow-Credentials "true"
-
-# Handle preflight requests
+Options -Indexes
 RewriteEngine On
-RewriteCond %{REQUEST_METHOD} OPTIONS
-RewriteRule ^(.*)$ $1 [R=200,L]
+RewriteBase /exclusivegrade/backend/
 
-# Route API requests
+# Route API requests through the router — CORS is handled in PHP
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^api/(.*)$ api/index.php?route=$1 [QSA,L]
